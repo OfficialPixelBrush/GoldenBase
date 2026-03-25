@@ -54,7 +54,7 @@ Chunk GeneratorInfdev20100227::GenerateChunk(Int2 chunkPos) {
 
 			// Generate value for chunk decorations
 			// TODO: Maybe replace this with java random for accuracy?
-			float decorationChance = static_cast<float>(std::rand()) / RAND_MAX;
+			float decorationChance = static_cast<float>(std::rand()) / float(RAND_MAX);
 
 			for (int32_t blockY = 0; blockY < CHUNK_HEIGHT; ++blockY) {
 				// Determine Block Type based on parameters
