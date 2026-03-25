@@ -3,7 +3,6 @@ let getTile;
 let Module;
 
 self.onmessage = async (e) => {
-    console.log('Worker received message:', e.data);  
     if (e.data.type === 'init') {
         // Import the Emscripten-generated JS glue
         importScripts(e.data.wasmJsUrl); // e.g. 'build/GoldenBase.js'
