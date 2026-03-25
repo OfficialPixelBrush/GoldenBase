@@ -20,9 +20,68 @@
 
 <script src="build/GoldenBase.js"></script>
 <script>
+const WORKER_COUNT = navigator.hardwareConcurrency || 4;
+const workers = [];
+const queue = [];   // pending tile requests
+const free = [];    // indices of idle workers
+
+function initWorkers(wasmJsUrl, onReady) {
+    let readyCount = 0;
+    for (let i = 0; i < WORKER_COUNT; i++) {
+        const w = new Worker('tile-worker.js');
+        workers.push(w);
+
+        w.onmessage = (e) => {
+            if (e.data.type === 'ready') {
+                free.push(i);
+                if (++readyCount === WORKER_COUNT) onReady();
+                return;
+            }
+            if (e.data.type === 'tile') {
+                // Resolve the promise for this tile
+                const { id, bytes } = e.data;
+                pendingTiles[id]?.(bytes);
+                delete pendingTiles[id];
+
+                // Mark worker free, drain queue
+                free.push(i);
+                dispatch();
+            }
+        };
+
+        w.postMessage({ type: 'init', wasmJsUrl });
+    }
+}
+
+const pendingTiles = {}; // id → resolve function
+let tileIdCounter = 0;
+
+function requestTile(x, y, z, tileSize) {
+    return new Promise((resolve) => {
+        const id = tileIdCounter++;
+        pendingTiles[id] = resolve;
+        queue.push({ x, y, z, tileSize, id });
+        dispatch();
+    });
+}
+
+function dispatch() {
+    while (free.length > 0 && queue.length > 0) {
+        const workerIdx = free.pop();
+        const job = queue.shift();
+        workers[workerIdx].postMessage({
+            type: 'getTile',
+            ...job
+        });
+    }
+}
+
 window.addEventListener('load', () => {
   createModule({
       onRuntimeInitialized: function() {
+            initWorkers('build/GoldenBase.js', () => {
+                console.log('All workers ready');
+            });
             const scale = 16; // pixels per block
             const Module = this;
             window.Module = Module;
@@ -58,17 +117,12 @@ window.addEventListener('load', () => {
                     tile.height = scale;
                     const ctx = tile.getContext('2d');
 
-                    // Generate tile asynchronously
-                    setTimeout(() => {  // or use a Promise / WASM async call
-                        const ptr = getTile(coords.x, coords.y, tileZoom);
-                        if (ptr) {
-                            const raw = new Uint8ClampedArray(Module.HEAPU8.buffer, ptr, scale*scale*4);
-                            ctx.putImageData(new ImageData(raw, scale, scale), 0, 0);
-                        }
-                        done(null, tile); // signal Leaflet that tile is ready
-                    }, 0);
+                    requestTile(coords.x, coords.y, tileZoom, scale).then((bytes) => {
+                        ctx.putImageData(new ImageData(bytes, scale, scale), 0, 0);
+                        done(null, tile);
+                    });
 
-                    return tile; // Leaflet needs an initial element immediately
+                    return tile;
                 }
             });
 
