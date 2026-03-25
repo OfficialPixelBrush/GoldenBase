@@ -1,4 +1,20 @@
 #include "chunk.h"
+#include <iostream>
+
+Biome Chunk::GetBiome(int32_t x, int32_t z) {
+	return biomeArray[(z & 15) << 4 | (x & 15)];
+}
+
+Biome Chunk::SetBiome(Biome biome, int32_t x, int32_t z) {
+	biomeArray[(z & 15) << 4 | (x & 15)] = biome;
+	return biome;
+}
+
+void Chunk::SetBiomes(std::vector<Biome> biomes) {
+	for (size_t i = 0; i < biomes.size(); ++i) {
+		biomeArray[i] = biomes[i];
+	}
+}
 
 int8_t Chunk::GetHeightValue(uint8_t x, uint8_t z) { return this->heightMap[(z & 15) << 4 | (x & 15)]; }
 

@@ -23,6 +23,7 @@ set(SOURCES
     
     src/helpers/datatypes.cpp
     src/helpers/blockHelper.cpp
+    src/helpers/biomeColors.cpp
     src/helpers/helper.cpp
 
     src/enums/biomes.cpp

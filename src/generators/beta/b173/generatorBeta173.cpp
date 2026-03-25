@@ -43,6 +43,7 @@ Chunk GeneratorBeta173::GenerateChunk(Int2 chunkPos) {
 	// Generate Biomes
 	Int2 blockPos = Int2{chunkPos.x*CHUNK_WIDTH_X, chunkPos.y * CHUNK_WIDTH_Z };
 	Beta173Biome(seed).GenerateBiomeMap(biomeMap, temperature, humidity, weirdness, blockPos, Int2{CHUNK_WIDTH_X, CHUNK_WIDTH_Z});
+	c.SetBiomes(biomeMap);
 
 	// Generate the Terrain, minus any caves, as just stone
 	GenerateTerrain(chunkPos, c);

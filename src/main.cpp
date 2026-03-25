@@ -3,6 +3,7 @@
 #include <iostream>
 #include <emscripten.h>
 #include "./generators/beta/b173/generatorBeta173.h"
+#include "biomeColors.h"
 
 static uint8_t buffer[CHUNK_WIDTH_X * CHUNK_WIDTH_Z * 4]; // static = lives for the program's lifetime
 
@@ -50,14 +51,15 @@ extern "C" {
                 //}
                 int idx = (pz * CHUNK_WIDTH_X + px) * 4;
                 int height = chunk->GetHeightValue(px, pz);
+                Int3 biomeColor = GetBiomeColor(chunk->GetBiome(px, pz));
                 if (height <= WATER_LEVEL) {
                     buffer[idx + 0] = 0;
                     buffer[idx + 1] = 0;
                     buffer[idx + 2] = (height) * 3;
                 } else {
-                    buffer[idx + 0] = (height-WATER_LEVEL) * 3;
-                    buffer[idx + 1] = (height-WATER_LEVEL) * 3;
-                    buffer[idx + 2] = (height-WATER_LEVEL) * 3;
+                    buffer[idx + 0] = int((float((height-WATER_LEVEL) * 3)/255.0f * float(biomeColor.x)/255.0f) * 255.0f);
+                    buffer[idx + 1] = int(((float((height-WATER_LEVEL) * 3)/255.0f * float(biomeColor.y)/255.0f) * 255.0f));
+                    buffer[idx + 2] = int(((float((height-WATER_LEVEL) * 3)/255.0f * float(biomeColor.z)/255.0f) * 255.0f));
                 }
                 buffer[idx + 3] = 255;
             }

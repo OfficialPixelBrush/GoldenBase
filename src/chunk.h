@@ -2,6 +2,7 @@
 #include "blocks.h"
 #include "blockHelper.h"
 #include "datatypes.h"
+#include "generators/beta/b173/beta173Biome.h"
 #include "helper.h"
 #include "world.h"
 #include <cstdint>
@@ -26,6 +27,7 @@ class Chunk {
 	uint8_t lowestBlockHeight = CHUNK_HEIGHT - 1;
 	World *world;
 	int32_t xPos, zPos;
+	Biome biomeArray[CHUNK_WIDTH_X * CHUNK_WIDTH_Z] = {BIOME_PLAINS};
 
 	void RelightBlock(int32_t x, int32_t y, int32_t z);
 	void UpdateSkylight_do(int32_t x, int32_t z);
@@ -49,6 +51,10 @@ class Chunk {
 	int8_t GetLight(bool skyLight, Int3 pos);
 	int8_t GetTotalLight(Int3 pos);
 	void ClearChunk();
+
+	Biome GetBiome(int32_t x, int32_t z);
+	Biome SetBiome(Biome biome, int32_t x, int32_t z);
+	void SetBiomes(std::vector<Biome> biomes);
 
 	void SetBlockType(BlockType type, Int3 pos);
 	BlockType GetBlockType(Int3 pos);
