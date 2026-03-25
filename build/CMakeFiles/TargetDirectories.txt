@@ -1,0 +1,3 @@
+/mnt/c/Users/TorbenVirtmann/PrivateDocuments/Github/GoldenBase/build/CMakeFiles/GoldenBase.dir
+/mnt/c/Users/TorbenVirtmann/PrivateDocuments/Github/GoldenBase/build/CMakeFiles/edit_cache.dir
+/mnt/c/Users/TorbenVirtmann/PrivateDocuments/Github/GoldenBase/build/CMakeFiles/rebuild_cache.dir
