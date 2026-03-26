@@ -76,6 +76,9 @@ function dispatch() {
     }
 }
 
+let currentGeneration = 0;
+let mapCenter = { x: 0, y: 0 };
+
 window.addEventListener('load', () => {
   createModule({
       onRuntimeInitialized: function() {
@@ -87,6 +90,8 @@ window.addEventListener('load', () => {
             window.Module = Module;
 
             const getTile = Module.cwrap('getTile', 'number', ['number', 'number', 'number']);
+            // const updateSeed = Module.cwrap('UpdateSeed', 'void', ['number']);
+            // const updateGenerator = Module.cwrap('UpdateGenerator', 'void', ['number']);
 
             const tileZoom = 2; // your tiles exist only at this zoom
 
@@ -95,20 +100,55 @@ window.addEventListener('load', () => {
                 minZoom: -2,
                 maxZoom: 5,
                 zoomSnap: 1,           // snap to integer zooms
-                zoomDelta: 1
+                zoomDelta: 1,
+                noWrap: true,
+                keepBuffer: 50   // default is 2
+            });
+            const Grid = L.GridLayer.extend({
+                createTile: function(coords) {
+                    const tile = L.DomUtil.create('canvas', 'leaflet-tile');
+                    const size = this.getTileSize();
+
+                    tile.width = size.x;
+                    tile.height = size.y;
+
+                    const ctx = tile.getContext('2d');
+
+                    ctx.strokeStyle = '#888';
+                    ctx.lineWidth = 1;
+
+                    ctx.beginPath();
+                    ctx.moveTo(0, 0);
+                    ctx.lineTo(size.x, 0);
+                    ctx.lineTo(size.x, size.y);
+                    ctx.lineTo(0, size.y);
+                    ctx.closePath();
+                    ctx.stroke();
+
+                    return tile;
+                }
             });
 
-            L.marker([0, 0]).addTo(map)
-                .bindPopup('(0,0)')
-                .openPopup();
-            L.polyline([[0,0],[0, map.getSize().y]], {color: 'red'}).addTo(map);
-            L.polyline([[0,0],[map.getSize().x, 0]], {color: 'blue'}).addTo(map);
+            (new Grid()).addTo(map);
+
+            L.polyline([[0,-map.getSize().y],[0, map.getSize().y]], {color: 'red'}).addTo(map);
+            L.polyline([[-map.getSize().x,0],[map.getSize().x, 0]], {color: 'blue'}).addTo(map);
 
             map.on('mousemove', function(e) {
-                const xBlock = Math.floor(e.layerX / scale);
-                const yBlock = Math.floor(e.layerY / scale);
-                document.getElementById('coords').textContent = `Block: ${xBlock}, ${yBlock}`;
+                document.getElementById('coords').textContent = `Center: ${(mapCenter.x*2).toFixed(16)}, ${(mapCenter.y*16).toFixed(2)}`;
             });
+
+            function updateCenter() {
+                const center = map.getCenter();
+
+                // convert lat/lng → pixel → tile coords
+                const point = map.project(center, tileZoom);
+
+                mapCenter.x = point.x / scale;
+                mapCenter.y = point.y / scale;
+            }
+            
+            map.on('move', updateCenter);
 
             const DynamicLayer = L.GridLayer.extend({
                 createTile: function(coords, done) {
@@ -118,7 +158,9 @@ window.addEventListener('load', () => {
                     const ctx = tile.getContext('2d');
 
                     requestTile(coords.x, coords.y, tileZoom, scale).then((bytes) => {
-                        ctx.putImageData(new ImageData(bytes, scale, scale), 0, 0);
+                        const imageData = ctx.createImageData(scale, scale);
+                        imageData.data.set(bytes);
+                        ctx.putImageData(imageData, 0, 0);
                         done(null, tile);
                     });
 
@@ -133,7 +175,7 @@ window.addEventListener('load', () => {
                 noWrap: true
             }).addTo(map);
 
-            map.setView([0, 0], tileZoom);
+            map.setView([0, 12550820/4], tileZoom);
       }
   });
 });

@@ -109,7 +109,6 @@ Chunk GeneratorInfdev20100327::GenerateChunk(Int2 chunkPos) {
 
 	c.GenerateHeightMap();
 	c.state = ChunkState::Generated;
-	c.modified = true;
 	return c;
 }
 

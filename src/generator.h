@@ -26,8 +26,8 @@ class Generator {
 	virtual ~Generator();
 	virtual Chunk GenerateChunk(Int2 chunkPos);
 	virtual bool PopulateChunk(Int2 chunkPos);
+	int64_t seed;
 
   protected:
-	int64_t seed;
 	World *world;
 };

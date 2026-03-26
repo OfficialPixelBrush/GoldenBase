@@ -61,7 +61,6 @@ Chunk GeneratorBeta173::GenerateChunk(Int2 chunkPos) {
 	//}
 
 	c.state = ChunkState::Generated;
-	c.modified = true;
 	return c;
 }
 
