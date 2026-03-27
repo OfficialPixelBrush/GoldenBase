@@ -10,7 +10,7 @@ self.onmessage = async (e) => {
 
         Module = await createModule();
         getTile = Module.cwrap('getTile', 'number', ['number', 'number', 'boolean', 'boolean']);
-        updateGenAndSeed = Module.cwrap('UpdateGenAndSeed', 'void', ['number', 'number']);
+        updateGenAndSeed = Module.cwrap('UpdateGenAndSeed', 'void', ['number', 'number', 'number']);
         self.postMessage({ type: 'ready' });
         return;
     }

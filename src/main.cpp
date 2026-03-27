@@ -112,9 +112,9 @@ extern "C" {
     Generator* generatorPtr = nullptr;
 
     EMSCRIPTEN_KEEPALIVE
-    void UpdateGenAndSeed(int64_t seed = 0, genSelect genId = GEN_BETA_BETA173) {
-        std::cout << "seed: " << seed << " - " << genId << std::endl;
-        currentSeed = seed;
+    void UpdateGenAndSeed(int32_t seedHigh = 0, int32_t seedLow = 0, genSelect genId = GEN_BETA_BETA173) {
+        currentSeed = (int64_t(seedHigh) << 32) | (int64_t(seedLow));
+        std::cout << "seed: " << currentSeed << " - " << genId << std::endl;
         activeGenId = genId;
         if (generatorPtr) {
             delete generatorPtr;
