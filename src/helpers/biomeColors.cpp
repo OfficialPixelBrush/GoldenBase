@@ -4,7 +4,7 @@ Int3 GetBiomeColor(Biome biome) {
     switch (biome) {
         // Fallback for Alpha-grass, as biomes didn't exist or have biome colors in Alpha
         case BIOME_NONE:
-            return Int3{116, 176, 73};
+            return Int3{200, 255, 128};
         case BIOME_RAINFOREST: // 1FF458
             return Int3{0x1F, 0xF4, 0x58};
         case BIOME_SWAMPLAND: // 8BAF48

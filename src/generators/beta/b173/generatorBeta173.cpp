@@ -23,7 +23,7 @@ GeneratorBeta173::GeneratorBeta173(int64_t pSeed, World *pWorld) : Generator(pSe
 	treeDensityNoiseGen = NoiseOctaves<NoisePerlin>(rand, 8);
 
 	// Init Caver
-	//caver = std::make_unique<Beta173Caver>();
+	caver = Beta173Caver();
 }
 
 /**
@@ -50,7 +50,7 @@ Chunk GeneratorBeta173::GenerateChunk(Int2 chunkPos) {
 	// Replace some of the stone with Biome-appropriate blocks
 	ReplaceBlocksForBiome(chunkPos, c);
 	// Carve caves
-	//this->caver->CarveCavesForChunk(this->world, chunkPos, c);
+	caver.CarveCavesForChunk(this->world->seed, chunkPos, c);
 	// Generate heightmap
 	c.GenerateHeightMap();
 

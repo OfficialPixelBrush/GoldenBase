@@ -15,171 +15,23 @@
 </head>
 <body>
 
+<div style="width: 100%;">
+    <span id="coords" style="color:white;"></span>
+    <span>
+        <input type="number" id="xPos" placeholder="x">
+        <input type="number" id="zPos" placeholder="z">
+        <button onclick="setPosition()">Go</button>
+    </span>
+
+    <span style="margin-right: 0;">
+        <input id="seedValue" placeholder="3257840388504953787" disabled="true">
+        <button onclick="updateSeedJs()" disabled="true">Set Seed</button>
+    </span>
+</div>
 <div id="map"></div>
-<div id="coords" style="position:absolute;top:10px;left:10px;color:white;"></div>
 
 <script src="build/GoldenBase.js"></script>
-<script>
-const WORKER_COUNT = navigator.hardwareConcurrency || 4;
-const workers = [];
-const queue = [];   // pending tile requests
-const free = [];    // indices of idle workers
-
-function initWorkers(wasmJsUrl, onReady) {
-    let readyCount = 0;
-    for (let i = 0; i < WORKER_COUNT; i++) {
-        const w = new Worker('tile-worker.js');
-        workers.push(w);
-
-        w.onmessage = (e) => {
-            if (e.data.type === 'ready') {
-                free.push(i);
-                if (++readyCount === WORKER_COUNT) onReady();
-                return;
-            }
-            if (e.data.type === 'tile') {
-                // Resolve the promise for this tile
-                const { id, bytes } = e.data;
-                pendingTiles[id]?.(bytes);
-                delete pendingTiles[id];
-
-                // Mark worker free, drain queue
-                free.push(i);
-                dispatch();
-            }
-        };
-
-        w.postMessage({ type: 'init', wasmJsUrl });
-    }
-}
-
-const pendingTiles = {}; // id → resolve function
-let tileIdCounter = 0;
-
-function requestTile(x, y, z, tileSize) {
-    return new Promise((resolve) => {
-        const id = tileIdCounter++;
-        pendingTiles[id] = resolve;
-        queue.push({ x, y, z, tileSize, id });
-        dispatch();
-    });
-}
-
-function dispatch() {
-    while (free.length > 0 && queue.length > 0) {
-        const workerIdx = free.pop();
-        const job = queue.shift();
-        workers[workerIdx].postMessage({
-            type: 'getTile',
-            ...job
-        });
-    }
-}
-
-let currentGeneration = 0;
-let mapCenter = { x: 0, y: 0 };
-
-window.addEventListener('load', () => {
-  createModule({
-      onRuntimeInitialized: function() {
-            initWorkers('build/GoldenBase.js', () => {
-                console.log('All workers ready');
-            });
-            const scale = 16; // pixels per block
-            const Module = this;
-            window.Module = Module;
-
-            const getTile = Module.cwrap('getTile', 'number', ['number', 'number', 'number']);
-            // const updateSeed = Module.cwrap('UpdateSeed', 'void', ['number']);
-            // const updateGenerator = Module.cwrap('UpdateGenerator', 'void', ['number']);
-
-            const tileZoom = 2; // your tiles exist only at this zoom
-
-            const map = L.map('map', {
-                crs: L.CRS.Simple,
-                minZoom: -2,
-                maxZoom: 5,
-                zoomSnap: 1,           // snap to integer zooms
-                zoomDelta: 1,
-                noWrap: true,
-                keepBuffer: 50   // default is 2
-            });
-            const Grid = L.GridLayer.extend({
-                createTile: function(coords) {
-                    const tile = L.DomUtil.create('canvas', 'leaflet-tile');
-                    const size = this.getTileSize();
-
-                    tile.width = size.x;
-                    tile.height = size.y;
-
-                    const ctx = tile.getContext('2d');
-
-                    ctx.strokeStyle = '#888';
-                    ctx.lineWidth = 1;
-
-                    ctx.beginPath();
-                    ctx.moveTo(0, 0);
-                    ctx.lineTo(size.x, 0);
-                    ctx.lineTo(size.x, size.y);
-                    ctx.lineTo(0, size.y);
-                    ctx.closePath();
-                    ctx.stroke();
-
-                    return tile;
-                }
-            });
-
-            (new Grid()).addTo(map);
-
-            L.polyline([[0,-map.getSize().y],[0, map.getSize().y]], {color: 'red'}).addTo(map);
-            L.polyline([[-map.getSize().x,0],[map.getSize().x, 0]], {color: 'blue'}).addTo(map);
-
-            map.on('mousemove', function(e) {
-                document.getElementById('coords').textContent = `Center: ${(mapCenter.x*2).toFixed(16)}, ${(mapCenter.y*16).toFixed(2)}`;
-            });
-
-            function updateCenter() {
-                const center = map.getCenter();
-
-                // convert lat/lng → pixel → tile coords
-                const point = map.project(center, tileZoom);
-
-                mapCenter.x = point.x / scale;
-                mapCenter.y = point.y / scale;
-            }
-            
-            map.on('move', updateCenter);
-
-            const DynamicLayer = L.GridLayer.extend({
-                createTile: function(coords, done) {
-                    const tile = document.createElement('canvas');
-                    tile.width = scale;
-                    tile.height = scale;
-                    const ctx = tile.getContext('2d');
-
-                    requestTile(coords.x, coords.y, tileZoom, scale).then((bytes) => {
-                        const imageData = ctx.createImageData(scale, scale);
-                        imageData.data.set(bytes);
-                        ctx.putImageData(imageData, 0, 0);
-                        done(null, tile);
-                    });
-
-                    return tile;
-                }
-            });
-
-            new DynamicLayer({
-                tileSize: scale,
-                minZoom: -5,
-                maxZoom: 5,
-                noWrap: true
-            }).addTo(map);
-
-            map.setView([0, 12550820/4], tileZoom);
-      }
-  });
-});
-</script>
+<script src="map.js"></script>
 
 </body>
 </html>

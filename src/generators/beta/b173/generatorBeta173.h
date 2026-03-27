@@ -1,4 +1,4 @@
-//#include "beta173Caver.h"
+#include "beta173Caver.h"
 //#include "beta173Feature.h"
 //#include "beta173Tree.h"
 #include "beta173Biome.h"
@@ -42,7 +42,7 @@ class GeneratorBeta173 : public Generator {
 	std::vector<double> weirdness;
 
 	// Cave Gen
-	//std::unique_ptr<Beta173Caver> caver;
+	Beta173Caver caver;
 
 	void GenerateTerrain(Int2 chunkPos, Chunk &c);
 	void GenerateTerrainNoise(std::vector<double> &terrainMap, Int3 chunkPos, Int3 max);

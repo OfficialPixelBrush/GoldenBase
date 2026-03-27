@@ -12,7 +12,7 @@ set(SOURCES
     src/generators/infdev/inf20100227/generatorInfdev20100227.cpp
     src/generators/infdev/inf20100327/generatorInfdev20100327.cpp
     src/generators/beta/b173/beta173Biome.cpp
-    #src/generators/beta/b173/beta173Caver.cpp
+    src/generators/beta/b173/beta173Caver.cpp
     #src/generators/beta/b173/beta173Feature.cpp
     #src/generators/beta/b173/beta173Tree.cpp
     src/generators/beta/b173/generatorBeta173.cpp

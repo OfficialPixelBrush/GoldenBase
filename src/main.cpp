@@ -8,7 +8,9 @@
 #include "biomeColors.h"
 #include "blocks.h"
 
-static uint8_t buffer[CHUNK_WIDTH_X * CHUNK_WIDTH_Z * 4]; // static = lives for the program's lifetime
+#define MAX_BATCH_SIZE 8  // supports zoomLevel 0..3 (2^3 = 8 chunks)
+
+static uint8_t buffer[(CHUNK_WIDTH_X * MAX_BATCH_SIZE) * (CHUNK_WIDTH_Z * MAX_BATCH_SIZE) * 4];
 
 static uint8_t clamp(double v) {
     if (v < 0) return 0;
@@ -51,92 +53,79 @@ Int3 MultiplyColor(Int3 a, Int3 b) {
     };
 }
 
+Int3 HexToInt3(int32_t value) {
+    return Int3{
+        (value >> 16) & 0xFF,
+        (value >> 8) & 0xFF,
+        value & 0xFF
+    };
+}
+
 Int3 GetBlockColor(int block_id, Int3 biomeColor) {
     switch(block_id) {
         default:
-            return Int3{255, 0, 255}; // magenta for unknown blocks
-        case BLOCK_STONE:
-            return Int3{128, 128, 128};
-        case BLOCK_GRASS:
-            return MultiplyColor(Int3{200, 200, 200}, biomeColor); // Biome tint
-        case BLOCK_DIRT:
-            return Int3{155, 118, 83};
-        case BLOCK_COBBLESTONE:
-            return Int3{120, 120, 120};
-        case BLOCK_PLANKS:
-            return Int3{160, 82, 45};
-        case BLOCK_SAPLING:
-            return Int3{34, 177, 76}; // Biome tint
-        case BLOCK_BEDROCK:
-            return Int3{54, 54, 54};
-        case BLOCK_WATER_FLOWING:
-        case BLOCK_WATER_STILL:
-            return Int3{64, 164, 223};
-        case BLOCK_LAVA_FLOWING:
-        case BLOCK_LAVA_STILL:
-            return Int3{255, 69, 0};
-        case BLOCK_SAND:
-            return Int3{194, 178, 128};
-        case BLOCK_GRAVEL:
-            return Int3{136, 126, 126};
+            return Int3{255, 0, 255};
         case BLOCK_ORE_GOLD:
-            return Int3{255, 215, 0};
         case BLOCK_ORE_IRON:
-            return Int3{216, 216, 216};
+        case BLOCK_ORE_DIAMOND:
+        case BLOCK_ORE_REDSTONE_ON:
+        case BLOCK_ORE_REDSTONE_OFF:
         case BLOCK_ORE_COAL:
-            return Int3{54, 54, 54};
-        case BLOCK_LOG:
-            return Int3{102, 51, 0};
-        case BLOCK_LEAVES:
-            return Int3{34, 177, 76}; // Biome tint
-        case BLOCK_SPONGE:
-            return Int3{255, 255, 102};
-        case BLOCK_GLASS:
-            return Int3{255, 255, 255};
         case BLOCK_ORE_LAPIS_LAZULI:
-            return Int3{38, 97, 156};
-        case BLOCK_DISPENSER:
-            return Int3{128, 128, 128};
-        case BLOCK_SANDSTONE:
-            return Int3{194, 178, 128};
-        case BLOCK_NOTEBLOCK:
-            return Int3{160, 82, 45};
-        case BLOCK_BED:
-            return Int3{255, 0, 255}; // magenta for unknown blocks
-        case BLOCK_RAIL_POWERED:
-            return Int3{128, 128, 128};
-        case BLOCK_RAIL_DETECTOR:
-            return Int3{128, 128, 128};
-        case BLOCK_PISTON_STICKY:
-            return Int3{0, 255, 0};
-        case BLOCK_BRICKS:
-            return Int3{150, 50, 50};
-        case BLOCK_TNT:
-            return Int3{255, 0, 0};
-        case BLOCK_OBSIDIAN:
-            return Int3{50, 0, 100};
+        case BLOCK_STONE:           return HexToInt3(0x7f7f7f);
+        case BLOCK_GRASS:           return MultiplyColor(HexToInt3(0x959595), biomeColor);
+        case BLOCK_DIRT:            return HexToInt3(0x79553a);
+        case BLOCK_COBBLESTONE:     return HexToInt3(0x898989);
+        case BLOCK_PLANKS:          return HexToInt3(0xbc9862);
+        case BLOCK_BEDROCK:         return HexToInt3(0x575757);
+        case BLOCK_WATER_FLOWING:
+        case BLOCK_WATER_STILL:     return HexToInt3(0x1f55ff);
+        case BLOCK_LAVA_FLOWING:
+        case BLOCK_LAVA_STILL:      return HexToInt3(0xfc5700);
+        case BLOCK_SAND:            return HexToInt3(0xded7a1);
+        case BLOCK_GRAVEL:          return HexToInt3(0x8f7875);
+        case BLOCK_LOG:             return HexToInt3(0x8f7875);
+        case BLOCK_SPONGE:          return HexToInt3(0xc7c73f);
+        case BLOCK_GLASS:           return HexToInt3(0xfefefe);
+        case BLOCK_SANDSTONE:       return HexToInt3(0xded5a6);
+        case BLOCK_BRICKS:          return HexToInt3(0x7c4536);
+        case BLOCK_TNT:             return HexToInt3(0xdb441a);
+        case BLOCK_OBSIDIAN:        return HexToInt3(0x0e0e16);
+        case BLOCK_IRON:            return HexToInt3(0xd1d1d1);
+        case BLOCK_GOLD:            return HexToInt3(0xe7c845);
+        case BLOCK_DIAMOND:         return HexToInt3(0x00bdb3);
+        case BLOCK_ICE:             return HexToInt3(0x77a9ff);
+        case BLOCK_CLAY:            return HexToInt3(0xa0a7b2);
     }
 }
 
-//GeneratorBeta173 generator(3257840388504953787, nullptr);
-//GeneratorBeta173 generator(3257840388504953787, nullptr);
+enum genSelect {
+    GEN_INVALID,
+    GEN_INFDEV_INFDEV20100227,
+    GEN_INFDEV_INFDEV20100327,
+    GEN_BETA_BETA173,
+};
+
 extern "C" {
     int64_t currentSeed = 3257840388504953787;
-    Generator* generatorPtr;
+    genSelect activeGeneratorId = GEN_BETA_BETA173;
+    Generator* generatorPtr = nullptr;
 
     EMSCRIPTEN_KEEPALIVE
-    void UpdateGenerator(int generatorId = 0) {
+    void UpdateGenerator(genSelect generatorId = GEN_BETA_BETA173) {
+        activeGeneratorId = generatorId;
         if (generatorPtr) {
             delete generatorPtr;
+            generatorPtr = nullptr;
         }
         switch(generatorId) {
-            case 0:
+            case GEN_BETA_BETA173:
                 generatorPtr = new GeneratorBeta173(currentSeed, nullptr);
                 break;
-            case 1:
+            case GEN_INFDEV_INFDEV20100227:
                 generatorPtr = new GeneratorInfdev20100227(currentSeed, nullptr);
                 break;
-            case 2:
+            case GEN_INFDEV_INFDEV20100327:
                 generatorPtr = new GeneratorInfdev20100327(currentSeed, nullptr);
                 break;
             default:
@@ -146,52 +135,80 @@ extern "C" {
 
     EMSCRIPTEN_KEEPALIVE
     void UpdateSeed(int64_t seed) {
-        if (!generatorPtr) {
-            UpdateGenerator(0);
-        }
+        std::cout << seed << std::endl;
         currentSeed = seed;
-        generatorPtr->seed = seed;
+        UpdateGenerator(activeGeneratorId);
     }
-
+    
     EMSCRIPTEN_KEEPALIVE
-    uint8_t* getTile(int x, int y, int z) {
-        std::cout << "getTile called with x=" << x << ", y=" << y << ", z=" << z << std::endl;
+    uint8_t* getTile(int x, int z, int zoomLevel) {
+        // zoomLevel < 0 : zoomed out — more chunks, 1px per block
+        // zoomLevel = 0 : MAX_BATCH_SIZE chunks, 1px per block  (base)
+        // zoomLevel > 0 : fewer chunks, scale px per block
+        //
+        // At base (zoomLevel=0): batchSize=MAX_BATCH_SIZE, scale=1
+        // Each step up halves the batch and doubles the scale:
+        //   batchSize = MAX_BATCH_SIZE >> zoomLevel  (min 1)
+        //   scale     = 1 << zoomLevel               (max MAX_BATCH_SIZE)
+        // Buffer is always exactly MAX_BATCH_SIZE*CHUNK_WIDTH pixels wide.
 
-        Chunk* chunk = new Chunk(generatorPtr->GenerateChunk(Int2{x, y}));
+        int batchSize = MAX_BATCH_SIZE >> zoomLevel;
+        int scale     = 1 << zoomLevel;
 
-        if (chunk->state == ChunkState::Generated) {
-            std::cout << "Chunk generated successfully for x=" << x << ", y=" << y << std::endl;
-        } else {
-            std::cout << "Chunk generation failed for x=" << x << ", y=" << y << std::endl;
-        }
+        // Clamp to valid range
+        if (batchSize < 1)          { batchSize = 1; scale = MAX_BATCH_SIZE; }
+        if (scale > MAX_BATCH_SIZE) { scale = MAX_BATCH_SIZE; batchSize = 1; }
 
-        for (int px = 0; px < CHUNK_WIDTH_X; px++) {
-            for (int pz = 0; pz < CHUNK_WIDTH_Z; pz++) {
-                int topY = chunk->GetHeightValue(px, pz);
-                int surface_block_id = chunk->GetBlockType(Int3{px, topY-1, pz});
-                Int3 biomeColor = GetBiomeColor(chunk->GetBiome(pz, px));
-                Int3 blockColor = GetBlockColor(surface_block_id, biomeColor);
-                int idx = (pz * CHUNK_WIDTH_X + px) * 4;
-                float heightFloat = HeightToFloat(topY);
-                if (topY <= WATER_LEVEL) {
-                    buffer[idx + 0] = 0;
-                    buffer[idx + 1] = 0;
-                    buffer[idx + 2] = FloatToInt8(heightFloat);
-                } else {
-                    buffer[idx + 0] = (FloatToInt8(heightFloat * Int8ToFloat(blockColor.x)));
-                    buffer[idx + 1] = (FloatToInt8(heightFloat * Int8ToFloat(blockColor.y)));
-                    buffer[idx + 2] = (FloatToInt8(heightFloat * Int8ToFloat(blockColor.z)));
+        int tileWidth = MAX_BATCH_SIZE * CHUNK_WIDTH_X;   // always constant
+        // (tileHeight = MAX_BATCH_SIZE * CHUNK_WIDTH_Z)
+
+        for (int bx = 0; bx < batchSize; bx++) {
+            for (int bz = 0; bz < batchSize; bz++) {
+                Chunk chunk = generatorPtr->GenerateChunk(Int2{
+                    x * batchSize + bx,
+                    z * batchSize + bz
+                });
+
+                for (int px = 0; px < CHUNK_WIDTH_X; px++) {
+                    for (int pz = 0; pz < CHUNK_WIDTH_Z; pz++) {
+                        int topY = chunk.GetHeightValue(px, pz);
+                        int surface_block_id = chunk.GetBlockType(Int3{px, topY - 1, pz});
+                        Int3 biomeColor = GetBiomeColor(chunk.GetBiome(pz, px));
+                        Int3 blockColor = GetBlockColor(surface_block_id, biomeColor);
+                        float heightFloat = HeightToFloat(topY);
+
+                        uint8_t r, g, b;
+                        if (topY <= WATER_LEVEL) {
+                            r = 0; g = 0; b = FloatToInt8(heightFloat);
+                        } else {
+                            r = FloatToInt8(heightFloat * Int8ToFloat(blockColor.x));
+                            g = FloatToInt8(heightFloat * Int8ToFloat(blockColor.y));
+                            b = FloatToInt8(heightFloat * Int8ToFloat(blockColor.z));
+                        }
+
+                        // Top-left pixel of this block in the output tile
+                        int originX = (bx * CHUNK_WIDTH_X + px) * scale;
+                        int originZ = (bz * CHUNK_WIDTH_Z + pz) * scale;
+
+                        for (int sy = 0; sy < scale; sy++) {
+                            for (int sx = 0; sx < scale; sx++) {
+                                int idx = ((originZ + sy) * tileWidth + (originX + sx)) * 4;
+                                buffer[idx + 0] = r;
+                                buffer[idx + 1] = g;
+                                buffer[idx + 2] = b;
+                                buffer[idx + 3] = 255;
+                            }
+                        }
+                    }
                 }
-                buffer[idx + 3] = 255;
             }
         }
-        delete chunk;
         return buffer;
     }
 }
 
 int main() {
-    UpdateGenerator(0);
+    UpdateGenerator(activeGeneratorId);
     GenerateBiomeLookup();
     return 0;
 }
