@@ -35,6 +35,7 @@ const pendingTiles = {}; // id → resolve function
 let tileIdCounter = 0;
 
 function StringToHash(value) {
+    console.log("needs to be hashed",value)
     let h = 0;
     if (value.length > 0) {
         for (let i = 0; i < value.length; i++) {
@@ -42,25 +43,6 @@ function StringToHash(value) {
         }
     }
     return h;
-}
-
-function updateSeedJs() {
-    seed = 0
-    tmpSeed = document.getElementById('seedValue').value
-    console.log(tmpSeed);
-    if (!isNaN(tmpSeed) && tmpSeed.trim() !== "") {
-        seed = Number(tmpSeed)
-    } else {
-        seed = StringToHash(tmpSeed);
-    }
-    
-    for (const k in pendingTiles) delete pendingTiles[k];
-    queue.length = 0;
-
-    // notify workers
-    workers.forEach(w => {
-        w.postMessage({ type: 'updateSeed', seed });
-    });
 }
 
 // X,Y -> Chunk X,Z
@@ -133,9 +115,11 @@ window.addEventListener('load', () => {
             L.polyline([[0,-map.getSize().y],[0, map.getSize().y]], {color: 'red'}).addTo(map);
             L.polyline([[-map.getSize().x,0],[map.getSize().x, 0]], {color: 'blue'}).addTo(map);
 
+            /*
             map.on('mousemove', function(e) {
                 document.getElementById('coords').textContent = `Center: ${(mapCenter.x*16).toFixed(2)}, ${(mapCenter.y*16).toFixed(2)}`;
             });
+            */
 
             function updateCenter() {
                 const center = map.getCenter();
@@ -155,6 +139,46 @@ window.addEventListener('load', () => {
                     ]
                 );
             };
+            
+            function regenTiles() {
+                // regenerate currently visible tiles
+                map.eachLayer(layer => {
+                    if (layer instanceof L.GridLayer && layer._tiles) {
+                        Object.values(layer._tiles).forEach(tileObj => {
+                            const coords = tileObj.coords;
+                            // remove old tile promise to force regeneration
+                            const tile = tileObj.el;
+                            requestTile(coords.x, coords.y, coords.z, tile.width).then((bytes) => {
+                                const ctx = tile.getContext('2d');
+                                const imageData = ctx.createImageData(tile.width, tile.height);
+                                imageData.data.set(bytes);
+                                ctx.putImageData(imageData, 0, 0);
+                            });
+                        });
+                    }
+                });
+            }
+
+            window.updateGenJs = function() {
+                const genId = Number(document.getElementById('genSelection').value); // declare locally
+                seed = 0
+                tmpSeed = document.getElementById('seedValue').value
+                if (!isNaN(tmpSeed) && tmpSeed.trim() !== "") {
+                    seed = Number(tmpSeed)
+                } else {
+                    seed = StringToHash(tmpSeed);
+                }
+                console.log(seed, genId);
+                
+                for (const k in pendingTiles) delete pendingTiles[k];
+                queue.length = 0;
+
+                // notify workers
+                workers.forEach(w => {
+                    w.postMessage({ type: 'updateGenAndSeed', seed, genId });
+                });
+                regenTiles();
+            }
             
             map.on('move', updateCenter);
 

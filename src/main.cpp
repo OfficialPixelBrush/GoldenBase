@@ -100,25 +100,28 @@ Int3 GetBlockColor(int block_id, Int3 biomeColor) {
 }
 
 enum genSelect {
-    GEN_INVALID,
-    GEN_INFDEV_INFDEV20100227,
-    GEN_INFDEV_INFDEV20100327,
-    GEN_BETA_BETA173,
+    GEN_INVALID = 0,
+    GEN_BETA_BETA173 = 3,
+    GEN_INFDEV_INFDEV20100327 = 2,
+    GEN_INFDEV_INFDEV20100227 = 1,
 };
 
 extern "C" {
     int64_t currentSeed = 3257840388504953787;
-    genSelect activeGeneratorId = GEN_BETA_BETA173;
+    genSelect activeGenId = GEN_BETA_BETA173;
     Generator* generatorPtr = nullptr;
 
     EMSCRIPTEN_KEEPALIVE
-    void UpdateGenerator(genSelect generatorId = GEN_BETA_BETA173) {
-        activeGeneratorId = generatorId;
+    void UpdateGenAndSeed(int64_t seed = 0, genSelect genId = GEN_BETA_BETA173) {
+        std::cout << "seed: " << seed << " - " << genId << std::endl;
+        currentSeed = seed;
+        activeGenId = genId;
         if (generatorPtr) {
             delete generatorPtr;
             generatorPtr = nullptr;
         }
-        switch(generatorId) {
+        switch(activeGenId) {
+            default:
             case GEN_BETA_BETA173:
                 generatorPtr = new GeneratorBeta173(currentSeed);
                 break;
@@ -128,16 +131,7 @@ extern "C" {
             case GEN_INFDEV_INFDEV20100327:
                 generatorPtr = new GeneratorInfdev20100327(currentSeed);
                 break;
-            default:
-                generatorPtr = new GeneratorBeta173(currentSeed);
         }
-    }
-
-    EMSCRIPTEN_KEEPALIVE
-    void UpdateSeed(int64_t seed) {
-        std::cout << seed << std::endl;
-        currentSeed = seed;
-        UpdateGenerator(activeGeneratorId);
     }
     
     EMSCRIPTEN_KEEPALIVE
@@ -210,7 +204,7 @@ extern "C" {
 }
 
 int main() {
-    UpdateGenerator(activeGeneratorId);
+    UpdateGenAndSeed(currentSeed, GEN_BETA_BETA173);
     GenerateBiomeLookup();
     return 0;
 }

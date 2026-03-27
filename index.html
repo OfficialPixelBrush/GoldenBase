@@ -17,19 +17,26 @@
 <body>
 
 <div style="width: 100%;">
+    <!--
     <span id="coords" style="color:white;"></span>
+    -->
     <span>
-        <input type="number" id="xPos" placeholder="x">
-        <input type="number" id="zPos" placeholder="z">
+        <input type="number" id="xPos" placeholder="x" value="0">
+        <input type="number" id="zPos" placeholder="z" value="0">
         <button onclick="setPosition()">Go</button>
     </span>
 
-    <!--
+    <label for="genSelection">Generator</label>
+    <select name="genSelection" id="genSelection">
+        <option value="3">Beta 1.7.3</option>
+        <option value="2">Infdev 20100327</option>
+        <option value="1">Infdev 20100227</option>
+    </select>
+
     <span style="margin-right: 0;">
-        <input id="seedValue" placeholder="3257840388504953787" disabled="true">
-        <button onclick="updateSeedJs()" disabled="true">Set Seed</button>
+        <input id="seedValue" placeholder="" value="3257840388504953787">
+        <button onclick="updateGenJs()">Update Gen</button>
     </span>
-    -->
 </div>
 <div id="map"></div>
 

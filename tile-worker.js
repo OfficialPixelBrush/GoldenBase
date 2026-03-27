@@ -1,7 +1,6 @@
 // Each worker loads its own WASM module — completely isolated memory
 let getTile;
-let updateSeed;
-let updateGenerator;
+let updateGenAndSeed;
 let Module;
 
 self.onmessage = async (e) => {
@@ -11,21 +10,14 @@ self.onmessage = async (e) => {
 
         Module = await createModule();
         getTile = Module.cwrap('getTile', 'number', ['number', 'number', 'boolean', 'boolean']);
-        updateSeed = Module.cwrap('UpdateSeed', 'void', ['number']);
-        updateGenerator = Module.cwrap('UpdateGenerator', 'void', ['number']);
-
+        updateGenAndSeed = Module.cwrap('UpdateGenAndSeed', 'void', ['number', 'number']);
         self.postMessage({ type: 'ready' });
         return;
     }
 
-    if (e.data.type === 'updateSeed') {
-        const { seed } = e.data;
-        updateSeed(seed);
-    }
-
-    if (e.data.type === 'updateGenerator') {
-        const { genId } = e.data;
-        updateGenerator(genId);
+    if (e.data.type === 'updateGenAndSeed') {
+        const { seed, genId } = e.data;
+        updateGenAndSeed(seed, genId);
     }
 
     if (e.data.type === 'getTile') {
