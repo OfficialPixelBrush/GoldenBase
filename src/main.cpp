@@ -176,14 +176,16 @@ extern "C" {
                         Int3 biomeColor = GetBiomeColor(chunk.GetBiome(pz, px));
                         Int3 blockColor = GetBlockColor(surface_block_id, biomeColor);
                         float heightFloat = HeightToFloat(topY);
+                        float gamma = 0.5f;
+                        float shadedHeight = powf(heightFloat, gamma);
 
                         uint8_t r, g, b;
                         if (topY <= WATER_LEVEL) {
-                            r = 0; g = 0; b = FloatToInt8(heightFloat);
+                            r = 0; g = 0; b = FloatToInt8(shadedHeight);
                         } else {
-                            r = FloatToInt8(heightFloat * Int8ToFloat(blockColor.x));
-                            g = FloatToInt8(heightFloat * Int8ToFloat(blockColor.y));
-                            b = FloatToInt8(heightFloat * Int8ToFloat(blockColor.z));
+                            r = FloatToInt8(shadedHeight * Int8ToFloat(blockColor.x));
+                            g = FloatToInt8(shadedHeight * Int8ToFloat(blockColor.y));
+                            b = FloatToInt8(shadedHeight * Int8ToFloat(blockColor.z));
                         }
 
                         // Top-left pixel of this block in the output tile

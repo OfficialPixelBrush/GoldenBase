@@ -66,7 +66,6 @@ function updateSeedJs() {
 // X,Y -> Chunk X,Z
 // Z = Zoom Level
 function requestTile(x, y, z, tileSize) {
-    console.log(z);
     return new Promise((resolve) => {
         const id = tileIdCounter++;
         pendingTiles[id] = resolve;
@@ -91,9 +90,6 @@ let mapCenter = { x: 0, y: 0 };
 window.addEventListener('load', () => {
   createModule({
       onRuntimeInitialized: function() {
-            initWorkers('build/GoldenBase.js', () => {
-                console.log('All workers ready');
-            });
             const scale = 16*8; // pixels per block
             const Module = this;
             window.Module = Module;
@@ -180,15 +176,18 @@ window.addEventListener('load', () => {
                 }
             });
 
-            new DynamicLayer({
-                tileSize: scale,
-                minZoom: 0,
-                maxZoom: 3,
-                noWrap: true,
-            }).addTo(map);
+            initWorkers('build/GoldenBase.js', () => {
+                console.log('All workers ready');
+                new DynamicLayer({
+                    tileSize: scale,
+                    minZoom: 0,
+                    maxZoom: 3,
+                    noWrap: true,
+                }).addTo(map);
 
-            // Put desired position here
-            map.setView([0, 0], tileZoom);
+                // Put desired position here
+                map.setView([0, 0], tileZoom);
+            });
       }
   });
 });
