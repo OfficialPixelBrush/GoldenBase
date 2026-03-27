@@ -6,9 +6,8 @@
  * @param pSeed The seed of the generated world
  * @param pWorld The world that the generator belongs to
  */
-GeneratorBeta173::GeneratorBeta173(int64_t pSeed, World *pWorld) : Generator(pSeed, pWorld) {
+GeneratorBeta173::GeneratorBeta173(int64_t pSeed) : Generator(pSeed) {
 	this->seed = pSeed;
-	this->world = pWorld;
 
 	rand = JavaRandom(this->seed);
 
@@ -50,16 +49,9 @@ Chunk GeneratorBeta173::GenerateChunk(Int2 chunkPos) {
 	// Replace some of the stone with Biome-appropriate blocks
 	ReplaceBlocksForBiome(chunkPos, c);
 	// Carve caves
-	caver.CarveCavesForChunk(this->world->seed, chunkPos, c);
+	caver.CarveCavesForChunk(seed, chunkPos, c);
 	// Generate heightmap
 	c.GenerateHeightMap();
-
-	// Testing for pack.png seed
-	// std::cout << std::hex;
-	//if (chunkPos.x == 5 && chunkPos.y == -5) {
-		// c->PrintHeightmap();
-	//}
-
 	c.state = ChunkState::Generated;
 	return c;
 }

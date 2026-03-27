@@ -1,8 +1,7 @@
 #include "generatorInfdev20100227.h"
 
-GeneratorInfdev20100227::GeneratorInfdev20100227(int64_t pSeed, World *pWorld) : Generator(pSeed, pWorld) {
+GeneratorInfdev20100227::GeneratorInfdev20100227(int64_t pSeed) : Generator(pSeed) {
 	this->seed = pSeed;
-	this->world = pWorld;
 
 	rand = JavaRandom(this->seed);
 	noiseGen1 = NoiseOctaves<NoisePerlin>(rand, 16);

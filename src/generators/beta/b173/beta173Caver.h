@@ -2,7 +2,6 @@
 
 #include "javaRandom.h"
 #include "datatypes.h"
-#include "world.h"
 #include "chunk.h"
 #include <cstdint>
 #include <memory>

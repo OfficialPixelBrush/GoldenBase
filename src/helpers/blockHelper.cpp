@@ -1,5 +1,4 @@
 #include "blockHelper.h"
-#include "world.h"
 
 // Roughly based on how they're defined in Beta 1.7.3
 bool IsOpaque(int16_t id) {

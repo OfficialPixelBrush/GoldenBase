@@ -28,7 +28,6 @@ set(SOURCES
 
     src/enums/biomes.cpp
     src/chunk.cpp
-    src/world.cpp
 )
 
 # Output JS/WASM

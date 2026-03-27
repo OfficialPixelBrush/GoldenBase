@@ -50,7 +50,7 @@ class GeneratorBeta173 : public Generator {
 	Biome GetBiomeAt(Int2 worldPos);
 
   public:
-	GeneratorBeta173(int64_t seed, World *world);
+	GeneratorBeta173(int64_t seed);
 	~GeneratorBeta173() = default;
 	Chunk GenerateChunk(Int2 chunkPos) override;
 	bool PopulateChunk(Int2 chunkPos) override;

@@ -20,7 +20,7 @@ class GeneratorInfdev20100327 : public Generator {
 	//bool GenerateMinable(BlockType blockType, World *world, JavaRandom& rand, int32_t var3, int32_t var4, int32_t var5);
 
   public:
-	GeneratorInfdev20100327(int64_t seed, World *world);
+	GeneratorInfdev20100327(int64_t seed);
 	~GeneratorInfdev20100327() = default;
 	Chunk GenerateChunk(Int2 chunkPos) override;
 	bool PopulateChunk(Int2 chunkPos) override;

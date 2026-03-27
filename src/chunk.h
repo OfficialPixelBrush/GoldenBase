@@ -4,10 +4,7 @@
 #include "datatypes.h"
 #include "generators/beta/b173/beta173Biome.h"
 #include "helper.h"
-#include "world.h"
 #include <cstdint>
-
-class World;
 
 enum ChunkState : int8_t {
 	Invalid,

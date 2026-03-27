@@ -15,7 +15,7 @@ class GeneratorInfdev20100227 : public Generator {
 	NoiseOctaves<NoisePerlin> noiseGen6;
 
   public:
-	GeneratorInfdev20100227(int64_t seed, World *world);
+	GeneratorInfdev20100227(int64_t seed);
 	~GeneratorInfdev20100227() = default;
 	Chunk GenerateChunk(Int2 chunkPos) override;
 	bool PopulateChunk(Int2 chunkPos) override;

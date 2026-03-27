@@ -120,16 +120,16 @@ extern "C" {
         }
         switch(generatorId) {
             case GEN_BETA_BETA173:
-                generatorPtr = new GeneratorBeta173(currentSeed, nullptr);
+                generatorPtr = new GeneratorBeta173(currentSeed);
                 break;
             case GEN_INFDEV_INFDEV20100227:
-                generatorPtr = new GeneratorInfdev20100227(currentSeed, nullptr);
+                generatorPtr = new GeneratorInfdev20100227(currentSeed);
                 break;
             case GEN_INFDEV_INFDEV20100327:
-                generatorPtr = new GeneratorInfdev20100327(currentSeed, nullptr);
+                generatorPtr = new GeneratorInfdev20100327(currentSeed);
                 break;
             default:
-                generatorPtr = new GeneratorBeta173(currentSeed, nullptr);
+                generatorPtr = new GeneratorBeta173(currentSeed);
         }
     }
 

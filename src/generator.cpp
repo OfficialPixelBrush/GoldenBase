@@ -1,7 +1,7 @@
 #include "generator.h"
 
 // Prepare the Generator to utilize some preset numbers and functions
-Generator::Generator([[maybe_unused]] int64_t pSeed, [[maybe_unused]] World *pWorld) {}
+Generator::Generator([[maybe_unused]] int64_t pSeed) {}
 
 Generator::~Generator() {}
 
