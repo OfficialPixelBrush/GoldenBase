@@ -34,15 +34,16 @@ set(SOURCES
 add_executable(GoldenBase ${SOURCES})
 
 # Add the flags you had in your emcc command
-set_target_properties(GoldenBase PROPERTIES
-    LINK_FLAGS "-O3 \
-        -s WASM=1 \
-        -s EXPORTED_RUNTIME_METHODS='[\"cwrap\"]' \
-        -s MODULARIZE=1 \
-        -s EXPORT_NAME='createModule' \
-        -s ALLOW_MEMORY_GROWTH=1 \
-        -s ASYNCIFY=1 \
-        --bind"
+target_link_options(GoldenBase PRIVATE
+    "-O3"
+    "-sDISABLE_EXCEPTION_CATCHING=0"
+    "-sWASM=1"
+    "-sEXPORTED_RUNTIME_METHODS=[cwrap,HEAPU8]"
+    "-sMODULARIZE=1"
+    "-sEXPORT_NAME=createModule"
+    "-sALLOW_MEMORY_GROWTH=1"
+    "-sASYNCIFY=1"
+    "--bind"
 )
 
 include_directories(

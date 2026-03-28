@@ -2,13 +2,14 @@
 #include <math.h>
 #include <iostream>
 #include <emscripten.h>
+#include <string>
 #include "./generators/beta/b173/generatorBeta173.h"
 #include "./generators/infdev/inf20100227/generatorInfdev20100227.h"
 #include "./generators/infdev/inf20100327/generatorInfdev20100327.h"
 #include "biomeColors.h"
 #include "blocks.h"
 
-#define MAX_BATCH_SIZE 8  // supports zoomLevel 0..3 (2^3 = 8 chunks)
+#define MAX_BATCH_SIZE 4  // supports zoomLevel 0..3 (2^3 = 8 chunks)
 
 static uint8_t buffer[(CHUNK_WIDTH_X * MAX_BATCH_SIZE) * (CHUNK_WIDTH_Z * MAX_BATCH_SIZE) * 4];
 
@@ -112,9 +113,18 @@ extern "C" {
     Generator* generatorPtr = nullptr;
 
     EMSCRIPTEN_KEEPALIVE
-    void UpdateGenAndSeed(int32_t seedHigh = 0, int32_t seedLow = 0, genSelect genId = GEN_BETA_BETA173) {
-        currentSeed = (int64_t(seedHigh) << 32) | (int64_t(seedLow));
-        std::cout << "seed: " << currentSeed << " - " << genId << std::endl;
+    void UpdateGenAndSeed(const char* seed_cstr, genSelect genId = GEN_BETA_BETA173) {
+        std::string seedString = std::string(seed_cstr);
+        currentSeed = 0;
+        
+        bool isNumber = !seedString.empty() && std::all_of(seedString.begin(), seedString.end(), ::isdigit);
+
+        if (isNumber) {
+            currentSeed = std::strtoll(seedString.c_str(), nullptr, 10);
+        } else {
+            currentSeed = int64_t(hashCode(seedString));
+        }
+        
         activeGenId = genId;
         if (generatorPtr) {
             delete generatorPtr;
@@ -204,7 +214,10 @@ extern "C" {
 }
 
 int main() {
-    UpdateGenAndSeed(currentSeed, GEN_BETA_BETA173);
+    UpdateGenAndSeed(
+        std::to_string(currentSeed).c_str(),
+        GEN_BETA_BETA173
+    );
     GenerateBiomeLookup();
     return 0;
 }

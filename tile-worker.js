@@ -1,39 +1,40 @@
-// Each worker loads its own WASM module — completely isolated memory
 let getTile;
 let updateGenAndSeed;
 let Module;
+let pendingGenUpdate = null;  // buffer any early updateGenAndSeed message
 
 self.onmessage = async (e) => {
     if (e.data.type === 'init') {
-        // Import the Emscripten-generated JS glue
-        importScripts(e.data.wasmJsUrl); // e.g. 'build/GoldenBase.js'
-
+        importScripts(e.data.wasmJsUrl);
         Module = await createModule();
-        getTile = Module.cwrap('getTile', 'number', ['number', 'number', 'boolean', 'boolean']);
-        updateGenAndSeed = Module.cwrap('UpdateGenAndSeed', 'void', ['number', 'number', 'number']);
+        getTile = Module.cwrap('getTile', 'number', ['number', 'number', 'number']);
+        updateGenAndSeed = Module.cwrap('UpdateGenAndSeed', 'void', ['string', 'number']);
+
+        // Drain any update that arrived before we were ready
+        if (pendingGenUpdate) {
+            const { seed, genId } = pendingGenUpdate;
+            pendingGenUpdate = null;
+            updateGenAndSeed(seed, genId);
+        }
+
         self.postMessage({ type: 'ready' });
         return;
     }
 
     if (e.data.type === 'updateGenAndSeed') {
+        if (!Module) { pendingGenUpdate = e.data; return; }  // not ready yet
         const { seed, genId } = e.data;
         updateGenAndSeed(seed, genId);
     }
 
     if (e.data.type === 'getTile') {
-        const { x, y, z, id, tileSize, heightShade, heightMap } = e.data;
-
-        const ptr = getTile(x, y, z, heightShade, heightMap);
-
-        // Copy the data OUT of WASM heap before posting — the buffer will be
-        // overwritten on the next call (it's static in C++)
+        const { x, y, z, id, tileSize } = e.data;
+        const ptr = getTile(x, y, z);
         const bytes = new Uint8ClampedArray(
             Module.HEAPU8.buffer,
             ptr,
             tileSize * tileSize * 4
-        ).slice(); // <-- critical: .slice() copies, doesn't reference
-
-        // Transfer the underlying ArrayBuffer for zero-copy postMessage
+        ).slice();
         self.postMessage({ type: 'tile', id, bytes }, [bytes.buffer]);
     }
 };
