@@ -205,7 +205,7 @@ window.addEventListener('load', () => {
                 }
             });
 
-            initWorkers('build/GoldenBase.js', () => {
+            initWorkers('GoldenBase.js', () => {
                 console.log('All workers ready');
                 new DynamicLayer({
                     tileSize: scale,
