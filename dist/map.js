@@ -72,9 +72,9 @@ window.addEventListener('load', () => {
             const map = L.map('map', {
                 crs: L.CRS.Simple,
                 minZoom: 0,
-                maxZoom: 3,
+                maxZoom: 2,
                 noWrap: true,
-                keepBuffer: 5   // default is 2
+                keepBuffer: 10   // default is 2
             });
             const Grid = L.GridLayer.extend({
                 createTile: function(coords) {

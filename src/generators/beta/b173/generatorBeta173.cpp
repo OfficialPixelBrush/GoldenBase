@@ -52,6 +52,8 @@ Chunk GeneratorBeta173::GenerateChunk(Int2 chunkPos) {
 	caver.CarveCavesForChunk(seed, chunkPos, c);
 	// Generate heightmap
 	c.GenerateHeightMap();
+	// Try to populate
+	//c.PopulateChunk(chunkPos);
 	c.state = ChunkState::Generated;
 	return c;
 }
@@ -379,8 +381,9 @@ Biome GeneratorBeta173::GetBiomeAt(Int2 worldPos) {
  */
 bool GeneratorBeta173::PopulateChunk(Int2 chunkPos) {
 	return true;
-	/*
 	// BlockSand.fallInstantly = true;
+
+	/*
 	Int2 blockPos = Int2{
 		chunkPos.x * CHUNK_WIDTH_X,
 		chunkPos.y * CHUNK_WIDTH_Z
@@ -391,10 +394,10 @@ bool GeneratorBeta173::PopulateChunk(Int2 chunkPos) {
 			blockPos.y + CHUNK_WIDTH_Z
 		}
 	);
-	this->rand.setSeed(this->world->seed);
+	this->rand.setSeed(seed);
 	int64_t xOffset = this->rand.nextLong() / 2L * 2L + 1L;
 	int64_t zOffset = this->rand.nextLong() / 2L * 2L + 1L;
-	this->rand.setSeed(((int64_t(chunkPos.x) * xOffset) + (int64_t(chunkPos.y) * zOffset)) ^ this->world->seed);
+	this->rand.setSeed(((int64_t(chunkPos.x) * xOffset) + (int64_t(chunkPos.y) * zOffset)) ^ seed);
 	[[maybe_unused]] Int3 coord;
 
 	// Generate lakes
@@ -403,7 +406,7 @@ bool GeneratorBeta173::PopulateChunk(Int2 chunkPos) {
 		coord.y = this->rand.nextInt(CHUNK_HEIGHT);
 		coord.z = blockPos.y + this->rand.nextInt(CHUNK_WIDTH_Z) + 8;
 		Beta173Feature(BLOCK_WATER_STILL)
-			.GenerateLake(this->world, this->rand, coord);
+			.GenerateLake(c, this->rand, coord);
 	}
 
 	// Generate lava lakes
@@ -413,7 +416,7 @@ bool GeneratorBeta173::PopulateChunk(Int2 chunkPos) {
 		coord.z = blockPos.y + this->rand.nextInt(CHUNK_WIDTH_Z) + 8;
 		if (coord.y < WATER_LEVEL || this->rand.nextInt(10) == 0) {
 			Beta173Feature(BLOCK_LAVA_STILL)
-				.GenerateLake(this->world, this->rand, coord);
+				.GenerateLake(c, this->rand, coord);
 		}
 	}
 
@@ -422,7 +425,7 @@ bool GeneratorBeta173::PopulateChunk(Int2 chunkPos) {
 		coord.x = blockPos.x + this->rand.nextInt(CHUNK_WIDTH_X) + 8;
 		coord.y = this->rand.nextInt(CHUNK_HEIGHT);
 		coord.z = blockPos.y + this->rand.nextInt(CHUNK_WIDTH_Z) + 8;
-		Beta173Feature().GenerateDungeon(this->world, this->rand, coord);
+		Beta173Feature().GenerateDungeon(c, this->rand, coord);
 	}
 
 	// Generate Clay patches
