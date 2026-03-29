@@ -74,7 +74,7 @@ Int3 GetBlockColor(int block_id, Int3 biomeColor) {
         case BLOCK_ORE_COAL:
         case BLOCK_ORE_LAPIS_LAZULI:
         case BLOCK_STONE:           return HexToInt3(0x7f7f7f);
-        case BLOCK_GRASS:           return MultiplyColor(HexToInt3(0x959595), biomeColor);
+        case BLOCK_GRASS:           return biomeColor;
         case BLOCK_DIRT:            return HexToInt3(0x79553a);
         case BLOCK_COBBLESTONE:     return HexToInt3(0x898989);
         case BLOCK_PLANKS:          return HexToInt3(0xbc9862);
@@ -145,7 +145,7 @@ extern "C" {
     }
     
     EMSCRIPTEN_KEEPALIVE
-    uint8_t* getTile(int x, int z, int zoomLevel) {
+    uint8_t* getTile(int x, int z, int zoomLevel, bool heightmap = true) {
         // zoomLevel < 0 : zoomed out — more chunks, 1px per block
         // zoomLevel = 0 : MAX_BATCH_SIZE chunks, 1px per block  (base)
         // zoomLevel > 0 : fewer chunks, scale px per block
@@ -175,21 +175,23 @@ extern "C" {
 
                 for (int px = 0; px < CHUNK_WIDTH_X; px++) {
                     for (int pz = 0; pz < CHUNK_WIDTH_Z; pz++) {
-                        int topY = chunk.GetHeightValue(px, pz);
-                        int surface_block_id = chunk.GetBlockType(Int3{px, topY - 1, pz});
-                        Int3 biomeColor = GetBiomeColor(chunk.GetBiome(pz, px));
-                        Int3 blockColor = GetBlockColor(surface_block_id, biomeColor);
-                        float heightFloat = HeightToFloat(topY);
-                        float gamma = 0.5f;
-                        float shadedHeight = powf(heightFloat, gamma);
-
                         uint8_t r, g, b;
-                        if (topY <= WATER_LEVEL) {
-                            r = 0; g = 0; b = FloatToInt8(shadedHeight);
+                        int surface_block_id = chunk.GetBlockType(Int3{px, WATER_LEVEL-1, pz});
+                        if (surface_block_id == BLOCK_WATER_STILL) {
+                            r = 0; g = 0; b = 255; //FloatToInt8(shadedHeight);
                         } else {
-                            r = FloatToInt8(shadedHeight * Int8ToFloat(blockColor.x));
-                            g = FloatToInt8(shadedHeight * Int8ToFloat(blockColor.y));
-                            b = FloatToInt8(shadedHeight * Int8ToFloat(blockColor.z));
+                            Int3 biomeColor = GetBiomeColor(chunk.GetBiome(pz, px));
+                            float shadedHeight = 1.0f;
+                            if (heightmap) {
+                                int topY = chunk.GetHeightValue(px, pz);
+                                //Int3 blockColor = GetBlockColor(surface_block_id, biomeColor);
+                                float heightFloat = HeightToFloat(topY);
+                                float gamma = 0.5f;
+                                shadedHeight = powf(heightFloat, gamma);
+                            }
+                            r = FloatToInt8(shadedHeight * Int8ToFloat(biomeColor.x));
+                            g = FloatToInt8(shadedHeight * Int8ToFloat(biomeColor.y));
+                            b = FloatToInt8(shadedHeight * Int8ToFloat(biomeColor.z));
                         }
 
                         // Top-left pixel of this block in the output tile

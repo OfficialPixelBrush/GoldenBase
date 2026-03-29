@@ -103,8 +103,8 @@ window.addEventListener('load', () => {
 
             (new Grid()).addTo(map);
 
-            L.polyline([[0,-map.getSize().y],[0, map.getSize().y]], {color: 'red'}).addTo(map);
-            L.polyline([[-map.getSize().x,0],[map.getSize().x, 0]], {color: 'blue'}).addTo(map);
+            L.polyline([[0,-10],[0, 10]], {color: 'white'}).addTo(map);
+            L.polyline([[-10,0],[10, 0]], {color: 'white'}).addTo(map);
 
             function updateCenter() {
                 const center = map.getCenter();
@@ -120,7 +120,7 @@ window.addEventListener('load', () => {
             window.setPosition = function() {
                 map.setView(
                     [
-                        Number(document.getElementById('zPos').value),
+                        Number(document.getElementById('zPos').value)*-1,
                         Number(document.getElementById('xPos').value)
                     ]
                 );
