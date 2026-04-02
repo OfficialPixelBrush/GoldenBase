@@ -4,6 +4,7 @@
 #include <emscripten.h>
 #include <string>
 #include "./generators/beta/b173/generatorBeta173.h"
+#include "./generators/alpha/a112_01/generatorAlpha112_01.h"
 #include "./generators/infdev/inf20100227/generatorInfdev20100227.h"
 #include "./generators/infdev/inf20100327/generatorInfdev20100327.h"
 #include "biomeColors.h"
@@ -103,6 +104,7 @@ Int3 GetBlockColor(int block_id, Int3 biomeColor) {
 enum genSelect {
     GEN_INVALID = 0,
     GEN_BETA_BETA173 = 3,
+    GEN_ALPHA_ALPHA112_01 = 4,
     GEN_INFDEV_INFDEV20100327 = 2,
     GEN_INFDEV_INFDEV20100227 = 1,
 };
@@ -145,6 +147,9 @@ extern "C" {
                 break;
             case GEN_INFDEV_INFDEV20100327:
                 generatorPtr = new GeneratorInfdev20100327(currentSeed);
+                break;
+            case GEN_ALPHA_ALPHA112_01:
+                generatorPtr = new GeneratorAlpha112_01(currentSeed);
                 break;
         }
     }
