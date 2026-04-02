@@ -8,6 +8,11 @@ You'll also need `Ninja` and `cmake`.
 
 # Building
 
+Make sure you're working within the emscripten env
+```bash
+source ~/emsdk/emsdk_env.sh
+```
+
 Just run the `build.sh` file, then use something like `python3 -m http.server` to host the files.
 
 # Supported features

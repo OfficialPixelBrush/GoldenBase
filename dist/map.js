@@ -35,14 +35,22 @@ const pendingTiles = {}; // id → resolve function
 let tileIdCounter = 0;
 let currentGenId = 0;
 
+function getOptions() {
+    let opt_value = 0;
+    if (document.getElementById('check_heightmap').checked) opt_value |= 1 << 0;
+    if (document.getElementById('check_blockcolors').checked) opt_value |= 1 << 1;
+    return opt_value;
+}
+
 function requestTile(x, y, z, tileSize) {
     const genId = currentGenId; // capture current generation
     return new Promise((resolve) => {
         const id = tileIdCounter++;
         pendingTiles[id] = (bytes) => {
-            if (genId === currentGenId) resolve(bytes); // only accept if generation matches
+            if (genId === currentGenId) resolve(bytes);
+            delete pendingTiles[id];
         };
-        queue.push({ x, y, z, id, tileSize });
+        queue.push({ x, y, z, id, tileSize, options: getOptions() });
         dispatch();
     });
 }

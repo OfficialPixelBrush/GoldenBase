@@ -29,18 +29,28 @@
         <input type="number" id="zPos" placeholder="z" value="0">
         <button onclick="setPosition()">Go</button>
     </span>
-
+    
     <label for="genSelection">Generator</label>
     <select name="genSelection" id="genSelection">
-        <option value="3">Beta 1.7.3</option>
+        <option value="3">Alpha 1.2.0 - Beta 1.7.3</option>
         <option value="2">Infdev 20100327</option>
         <option value="1">Infdev 20100227</option>
     </select>
 
     <span style="margin-right: 0;">
+        <label for="seedValue">Seed</label>
         <input id="seedValue" placeholder="" value="3257840388504953787">
         <button onclick="updateGenJs()">Update Gen</button>
     </span>
+    <details>
+        <summary>Visualizer Settings</summary>
+        <span>
+            <input type="checkbox" id="check_heightmap" name="check_heightmap" value="Heightmap">
+            <label for="check_heightmap">Heightmap</label><br>
+            <input type="checkbox" id="check_blockcolors" name="check_blockcolors" value="Block colors">
+            <label for="check_blockcolors">Block colors</label><br>
+        </span>
+    </details>
 </div>
 <div id="map"></div>
 

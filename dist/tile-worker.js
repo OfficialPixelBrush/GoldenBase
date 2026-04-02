@@ -7,7 +7,7 @@ self.onmessage = async (e) => {
     if (e.data.type === 'init') {
         importScripts(e.data.wasmJsUrl);
         Module = await createModule();
-        getTile = Module.cwrap('getTile', 'number', ['number', 'number', 'number']);
+        getTile = Module.cwrap('getTile', 'number', ['number', 'number', 'number', 'number']);
         updateGenAndSeed = Module.cwrap('UpdateGenAndSeed', 'void', ['string', 'number']);
 
         // Drain any update that arrived before we were ready
@@ -28,8 +28,8 @@ self.onmessage = async (e) => {
     }
 
     if (e.data.type === 'getTile') {
-        const { x, y, z, id, tileSize } = e.data;
-        const ptr = getTile(x, y, z);
+        const { x, y, z, id, tileSize, options } = e.data;
+        const ptr = getTile(x, y, z, options);
         const bytes = new Uint8ClampedArray(
             Module.HEAPU8.buffer,
             ptr,
