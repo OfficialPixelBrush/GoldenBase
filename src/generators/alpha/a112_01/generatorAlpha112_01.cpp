@@ -302,7 +302,7 @@ void GeneratorAlpha112_01::GenerateTerrainNoise(std::vector<double> &terrainMap,
             ++xzIndex;
             for (int32_t iY = 0; iY < max.y; ++iY) {
                 double terrainDensity = 0.0;
-                double densityOffset = ((double)iY - elevationOffset) * 12.0 / continentalness;
+                double densityOffset = (double(iY) - elevationOffset) * 12.0 / continentalness;
                 if (densityOffset < 0.0) {
                     densityOffset *= 4.0;
                 }
@@ -321,7 +321,7 @@ void GeneratorAlpha112_01::GenerateTerrainNoise(std::vector<double> &terrainMap,
 
                 double terrainFade;
                 if (iY > max.y - 4) {
-                    terrainFade = double((float)(iY - (max.y - 4)) / 3.0f);
+                    terrainFade = double(float(iY - (max.y - 4)) / 3.0f);
                     terrainDensity = terrainDensity * (1.0 - terrainFade) + -10.0 * terrainFade;
                 }
                 if (double(iY) < 0.0) {
