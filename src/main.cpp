@@ -213,7 +213,7 @@ extern "C" {
                         } else if (surface_block_id == BLOCK_ICE) {
                             fr = 0.5f; fg = 0.8f; fb = 1.0f;
                         } else {
-                            Int3 biomeColor = GetBiomeColor(chunk.GetBiome(pz, px));
+                            Int3 biomeColor = GetBiomeColor(chunk.GetBiome(px, pz));
                             if (blockColors) {
                                 surface_block_id = chunk.GetBlockType(Int3{px, topY-1, pz});
                                 Int3 blockColor = GetBlockColor(surface_block_id, biomeColor);

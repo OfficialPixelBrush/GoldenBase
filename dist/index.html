@@ -11,8 +11,9 @@
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:image" content="/GoldenBase/favicon.ico">
 
-    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
-    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-graticule@0.0.1"></script>
 
     <style>
         html, body { margin:0; height:100%; }
@@ -33,7 +34,10 @@
 </head>
 <body>
 
-<div id="map"></div>
+<div id="map">
+    <noscript>The interactive map requires javascript to be displayed, please enable javascript in your browser.
+    </noscript>
+</div>
 <script src="GoldenBase.js"></script>
 <script src="map.js"></script>
 

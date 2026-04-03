@@ -2,11 +2,11 @@
 #include <iostream>
 
 Biome Chunk::GetBiome(int32_t x, int32_t z) {
-	return biomeArray[(z & 15) << 4 | (x & 15)];
+	return biomeArray[(x & 15) << 4 | (z & 15)];
 }
 
 Biome Chunk::SetBiome(Biome biome, int32_t x, int32_t z) {
-	biomeArray[(z & 15) << 4 | (x & 15)] = biome;
+	biomeArray[(x & 15) << 4 | (z & 15)] = biome;
 	return biome;
 }
 

@@ -170,9 +170,9 @@ window.addEventListener('load', () => {
                         <td>
                             <details>
                                 <summary>Visualizer Settings</summary>
-                                <input type="checkbox" id="check_heightmap" name="check_heightmap" value="Heightmap">
+                                <input type="checkbox" id="check_heightmap" name="check_heightmap" value="Heightmap" checked="true">
                                 <label for="check_heightmap">Heightmap</label><br>
-                                <input type="checkbox" id="check_blockcolors" name="check_blockcolors" value="Block colors">
+                                <input type="checkbox" id="check_blockcolors" name="check_blockcolors" value="Block colors" checked="true">
                                 <label for="check_blockcolors">Block colors</label><br>
                             </details>
                         </td>
@@ -212,6 +212,12 @@ window.addEventListener('load', () => {
                 clearOffscreenTiles();
             };
 
+            function cancelAllTiles() {
+                currentGenId++;                            // invalidates all in-flight promises
+                queue.length = 0;                          // discard queued jobs
+                for (const k in pendingTiles) delete pendingTiles[k]; // discard callbacks
+            }
+
             function clearOffscreenTiles() {
                 const bounds = map.getBounds();
                 const tileZoom = 0;
@@ -248,13 +254,9 @@ window.addEventListener('load', () => {
 
             // When updating generator/seed:
             window.updateGenJs = function() {
-                currentGenId++; // increment generation
+                cancelAllTiles();
                 const genId = Number(document.getElementById('genSelection').value);
                 const seed = document.getElementById('seedValue').value.trim();
-
-                // clear pending tiles and queue
-                for (const k in pendingTiles) delete pendingTiles[k];
-                queue.length = 0;
 
                 // notify workers
                 workers.forEach(w => {
@@ -268,7 +270,9 @@ window.addEventListener('load', () => {
             document.getElementById('xPos').addEventListener('change', setPosition);
             document.getElementById('zPos').addEventListener('change', setPosition);
             
-            map.on('move', updateCenter);
+            map.on('move',      updateCenter);
+            map.on('zoomstart', cancelAllTiles);
+            map.on('zoomend',   regenTiles);
 
             const DynamicLayer = L.GridLayer.extend({
                 createTile: function(coords, done) {
@@ -292,6 +296,28 @@ window.addEventListener('load', () => {
                     return tile;
                 }
             });
+
+            // Add the graticule to your map
+            /*
+            L.latlngGraticule({
+                showLabel: false,
+                color: "#fff3",
+                weight: 1,
+                zoomInterval: [{start: 0, end: 3, interval: 16}],
+                redraw: false,
+                latlngBounds: [[-1e7, -1e7], [1e7, 1e7]] // full world
+            }).addTo(map);
+
+            // Add the graticule to your map
+            L.latlngGraticule({
+                showLabel: true,
+                color: "#fff8",
+                weight: 1,
+                zoomInterval: [{start: 0, end: 3, interval: 256}],
+                redraw: false,
+                latlngBounds: [[-1e7, -1e7], [1e7, 1e7]] // full world
+            }).addTo(map);
+            */
 
             initWorkers('GoldenBase.js', () => {
                 console.log('All workers ready');
