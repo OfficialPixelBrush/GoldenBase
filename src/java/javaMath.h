@@ -35,17 +35,17 @@ inline double grad3d(int32_t hash, double x, double y, double z) {
 }
 
 /**
- * @brief 2D Perlin noise gradient function
+ * @brief 2D Perlin noise gradient function (equivalent to grad3d(x,0.0,z))
  * 
  * @param hash Hashed lattice value
  * @param x X of Distance Vector
- * @param y Y of Distance Vector
+ * @param y Z of Distance Vector
  * @return double 
  */
-inline double grad2d(int32_t hash, double x, double y) {
+inline double grad2d(int32_t hash, double x, double z) {
 	hash &= 15;
 	double u = double(1 - ((hash & 8) >> 3)) * x;
-	double v = hash < 4 ? 0.0 : (hash != 12 && hash != 14 ? y : x);
+	double v = hash < 4 ? 0.0 : (hash != 12 && hash != 14 ? z : x);
 	return ((hash & 1) == 0 ? u : -u) + ((hash & 2) == 0 ? v : -v);
 }
 
