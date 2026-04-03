@@ -1,6 +1,9 @@
 # GoldenBase
 A ChunkBase-like website for pre-Release Minecraft terrain generation
 
+This project is part of the OpenBeta initiative, so feel free to join the Discord server!
+https://discord.gg/JHTz2HSKrf
+
 # Dependencies
 Follow the download and install instructions from the Emscripten page, [found here](https://emscripten.org/docs/getting_started/downloads.html).
 
