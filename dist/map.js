@@ -113,6 +113,82 @@ window.addEventListener('load', () => {
 
             L.polyline([[0,-10],[0, 10]], {color: 'white'}).addTo(map);
             L.polyline([[-10,0],[10, 0]], {color: 'white'}).addTo(map);
+            
+            // Create a custom control
+            const infoControl = L.control({ position: 'topright' });
+
+            infoControl.onAdd = function (map) {
+                const div = L.DomUtil.create('div', 'custom-control');
+                div.innerHTML = `
+                    <table style="width: 300pt; table-layout: fixed;">
+                    <tr>
+                        <td style="text-align: center;" colspan="2">
+                            <p style="margin:0;"><b>GoldenBase</b></p>
+                            <p style="margin:0;">Pre-release world explorer</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="text-align: center;">
+                            <p style="margin:0;">Made by <a style="color: lightblue" href="https://pixelbrush.dev/about">Pixel Brush</a></p>
+                        </td>
+                        <td style="text-align: center;">
+                            <p style="margin:0;"><a style="color: lightblue" href="https://github.com/OfficialPixelBrush/GoldenBase">Github Repository</a></p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <code id="coords"></code>
+                        </td>
+                        <td>
+                            <input type="number" id="xPos" placeholder="x" value="0" style="width: 20%">
+                            <input type="number" id="zPos" placeholder="z" value="0" style="width: 20%">
+                            <button onclick="setPosition()">Go</button>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <label>Generator</label>
+                        </td>
+                        <td>
+                            <select id="genSelection">
+                                <option value="3">a1.2.0 - b1.7.3</option>
+                                <option disabled="true" value="4">inf-20100611 - a1.1.2_01</option>
+                                <option value="2">inf-20100327</option>
+                                <option value="1">inf-20100227</option>
+                            </select>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <label>Seed</label>
+                        </td>
+                        <td>
+                            <input id="seedValue" value="3257840388504953787">
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <details>
+                                <summary>Visualizer Settings</summary>
+                                <input type="checkbox" id="check_heightmap" name="check_heightmap" value="Heightmap">
+                                <label for="check_heightmap">Heightmap</label><br>
+                                <input type="checkbox" id="check_blockcolors" name="check_blockcolors" value="Block colors">
+                                <label for="check_blockcolors">Block colors</label><br>
+                            </details>
+                        </td>
+                        <td>
+                            <button id="updateGen">Update Gen</button>
+                        </td>
+                    </tr>
+                    </table>
+                `;
+                return div;
+            };
+
+            infoControl.addTo(map);
+
+            // Prevent clicks from propagating to the map
+            L.DomEvent.disableClickPropagation(infoControl.getContainer());
 
             function updateCenter() {
                 const center = map.getCenter();
@@ -187,6 +263,10 @@ window.addEventListener('load', () => {
 
                 regenTiles(); // regenerate visible tiles
             }
+            
+            document.getElementById('updateGen').addEventListener('click', updateGenJs);
+            document.getElementById('xPos').addEventListener('change', setPosition);
+            document.getElementById('zPos').addEventListener('change', setPosition);
             
             map.on('move', updateCenter);
 
