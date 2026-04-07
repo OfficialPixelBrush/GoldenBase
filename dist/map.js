@@ -39,6 +39,7 @@ function getOptions() {
     let opt_value = 0;
     if (document.getElementById('check_heightmap').checked) opt_value |= 1 << 0;
     if (document.getElementById('check_blockcolors').checked) opt_value |= 1 << 1;
+    if (document.getElementById('check_water').checked) opt_value |= 1 << 2;
     return opt_value;
 }
 
@@ -174,6 +175,8 @@ window.addEventListener('load', () => {
                                 <label for="check_heightmap">Heightmap</label><br>
                                 <input type="checkbox" id="check_blockcolors" name="check_blockcolors" value="Block colors" checked="true">
                                 <label for="check_blockcolors">Block colors</label><br>
+                                <input type="checkbox" id="check_water" name="check_water" value="Show Water" checked="true">
+                                <label for="check_water">Show Water</label><br>
                             </details>
                         </td>
                         <td>

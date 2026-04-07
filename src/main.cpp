@@ -156,9 +156,9 @@ extern "C" {
     
     /*
         OPTIONS BITMASK
-        1   -> Heightmap 
-        2   -> Block Colors
-        4   -> x
+        1   -> Heightmap, if the color should be multiplied by the height (darker at low y, brighter at high y)
+        2   -> Block Colors, if not set, biome colors are used for everything
+        4   -> Show Water, if water should be rendered
         8   -> x
         16  -> x
         32  -> x
@@ -173,6 +173,7 @@ extern "C" {
         //std::cout << x << ", " << z << ": " << zoomLevel << std::endl;
         bool heightmap      = (options & 1) > 0;
         bool blockColors    = (options & 2) > 0;
+        bool showWater      = (options & 4) > 0;
         // zoomLevel < 0 : zoomed out — more chunks, 1px per block
         // zoomLevel = 0 : MAX_BATCH_SIZE chunks, 1px per block  (base)
         // zoomLevel > 0 : fewer chunks, scale px per block
@@ -208,9 +209,9 @@ extern "C" {
                         float shadedHeight = 1.0f;
                         int topY = chunk.GetHeightValue(px, pz);
                         int surface_block_id = chunk.GetBlockType(Int3{px, topY, pz});
-                        if (surface_block_id == BLOCK_WATER_STILL) {
+                        if (showWater && surface_block_id == BLOCK_WATER_STILL) {
                             fr = 0.0f; fg = 0.0f; fb = 1.0f;
-                        } else if (surface_block_id == BLOCK_ICE) {
+                        } else if (showWater && surface_block_id == BLOCK_ICE) {
                             fr = 0.5f; fg = 0.8f; fb = 1.0f;
                         } else {
                             Int3 biomeColor = GetBiomeColor(chunk.GetBiome(px, pz));
