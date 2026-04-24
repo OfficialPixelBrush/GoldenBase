@@ -26,6 +26,7 @@ Just run the `build.sh` file, then use something like `python3 -m http.server` t
 ## Supported versions/ranges
 
 - Alpha v1.2.0 - Beta 1.7.3 ([Halloween Update terrain generator](https://minecraft.wiki/w/World_generation/History#Halloween_Update_terrain_generator))
+- Infdev 20100611 - Alpha 1.1.2_01
 - Infdev 20100327 (first version with the Farlands)
 - Infdev 20100227-1433 (brick pyramids + obsidian wall)
 

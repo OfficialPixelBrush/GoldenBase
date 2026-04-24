@@ -40,8 +40,9 @@ class GeneratorAlpha112_01 : public Generator {
 
 	void GenerateTerrain(Int2 chunkPos, Chunk &c);
 	void GenerateTerrainNoise(std::vector<double> &terrainMap, Int3 chunkPos, Int3 max);
-	void ReplaceSurfaceBlocks(Int2 chunkPos, Chunk &c);
+	void ReplaceBlocksForBiome(Int2 chunkPos, Chunk &c);
 	Biome GetBiomeAt(Int2 worldPos);
+	bool snowCovered = false;
 
   public:
 	GeneratorAlpha112_01(int64_t seed);
