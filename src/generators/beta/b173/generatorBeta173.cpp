@@ -40,8 +40,8 @@ Chunk GeneratorBeta173::GenerateChunk(Int2 chunkPos) {
 	c.ClearChunk();
 
 	// Generate Biomes
-	Int2 blockPos = Int2{chunkPos.x*CHUNK_WIDTH_X, chunkPos.y * CHUNK_WIDTH_Z };
-	Beta173Biome(seed).GenerateBiomeMap(biomeMap, temperature, humidity, weirdness, blockPos, Int2{CHUNK_WIDTH_X, CHUNK_WIDTH_Z});
+	Int2 blockPos = Int2{chunkPos.x*CHUNK_WIDTH, chunkPos.y * CHUNK_WIDTH };
+	Beta173Biome(seed).GenerateBiomeMap(biomeMap, temperature, humidity, weirdness, blockPos, Int2{CHUNK_WIDTH, CHUNK_WIDTH});
 	c.SetBiomes(biomeMap);
 
 	// Generate the Terrain, minus any caves, as just stone
@@ -49,7 +49,7 @@ Chunk GeneratorBeta173::GenerateChunk(Int2 chunkPos) {
 	// Replace some of the stone with Biome-appropriate blocks
 	ReplaceBlocksForBiome(chunkPos, c);
 	// Carve caves
-	//caver.CarveCavesForChunk(seed, chunkPos, c);
+	caver.CarveCavesForChunk(seed, chunkPos, c);
 	// Generate heightmap
 	c.GenerateHeightMap();
 	// Try to populate
@@ -72,25 +72,33 @@ void GeneratorBeta173::ReplaceBlocksForBiome(Int2 chunkPos, Chunk &c) {
 	this->stoneNoise.resize(256, 0.0);
 
 	// Populate noise maps
-	this->sandGravelNoiseGen.GenerateOctaves(this->sandNoise, double(chunkPos.x * CHUNK_WIDTH_X),
-											  double(chunkPos.y * CHUNK_WIDTH_Z), 0.0, 16, 16, 1, oneThirtySecond,
+	this->sandGravelNoiseGen.GenerateOctaves(this->sandNoise, double(chunkPos.x * CHUNK_WIDTH),
+											  double(chunkPos.y * CHUNK_WIDTH), 0.0, CHUNK_WIDTH, CHUNK_WIDTH, 1, oneThirtySecond,
 											  oneThirtySecond, 1.0);
-	this->sandGravelNoiseGen.GenerateOctaves(this->gravelNoise, double(chunkPos.x * CHUNK_WIDTH_X), 109.0134,
-											  double(chunkPos.y * CHUNK_WIDTH_Z), 16, 1, 16, oneThirtySecond, 1.0,
+	if (gravelFix) {
+		// Beta-era terrain between A1.x.x - Beta 1.7.3
+		this->sandGravelNoiseGen.GenerateOctaves(this->gravelNoise, double(chunkPos.x * CHUNK_WIDTH), 109.0134,
+											  double(chunkPos.y * CHUNK_WIDTH), CHUNK_WIDTH, 1, CHUNK_WIDTH, oneThirtySecond, 1.0,
 											  oneThirtySecond);
-	this->stoneNoiseGen.GenerateOctaves(this->stoneNoise, double(chunkPos.x * CHUNK_WIDTH_X), double(chunkPos.y * CHUNK_WIDTH_Z),
-										 0.0, 16, 16, 1, oneThirtySecond * 2.0, oneThirtySecond * 2.0,
+	} else {
+		// Beta-era terrain between A1.2.0 - ?	
+		this->sandGravelNoiseGen.GenerateOctaves(this->gravelNoise, double(chunkPos.y * CHUNK_WIDTH), 109.0134,
+											  double(chunkPos.x * CHUNK_WIDTH), CHUNK_WIDTH, 1, CHUNK_WIDTH, oneThirtySecond, 1.0,
+											  oneThirtySecond);
+	}
+	this->stoneNoiseGen.GenerateOctaves(this->stoneNoise, double(chunkPos.x * CHUNK_WIDTH), double(chunkPos.y * CHUNK_WIDTH),
+										 0.0, CHUNK_WIDTH, CHUNK_WIDTH, 1, oneThirtySecond * 2.0, oneThirtySecond * 2.0,
 										 oneThirtySecond * 2.0);
 
 	// Iterate through entire chunk
-	for (int32_t x = 0; x < CHUNK_WIDTH_X; ++x) {
-		for (int32_t z = 0; z < CHUNK_WIDTH_Z; ++z) {
+	for (int32_t x = 0; x < CHUNK_WIDTH; ++x) {
+		for (int32_t z = 0; z < CHUNK_WIDTH; ++z) {
 			// Get values from noise maps
-			Biome biome = biomeMap[x + z * 16];
-			bool sandActive = this->sandNoise[x + z * CHUNK_WIDTH_X] + this->rand.nextDouble() * 0.2 > 0.0;
-			bool gravelActive = this->gravelNoise[x + z * CHUNK_WIDTH_X] + this->rand.nextDouble() * 0.2 > 3.0;
+			Biome biome = biomeMap[x + z * CHUNK_WIDTH];
+			bool sandActive = this->sandNoise[x + z * CHUNK_WIDTH] + this->rand.nextDouble() * 0.2 > 0.0;
+			bool gravelActive = this->gravelNoise[x + z * CHUNK_WIDTH] + this->rand.nextDouble() * 0.2 > 3.0;
 			int32_t stoneActive =
-				Java::DoubleToInt32(this->stoneNoise[x + z * CHUNK_WIDTH_X] / 3.0 + 3.0 + this->rand.nextDouble() * 0.25);
+				Java::DoubleToInt32(this->stoneNoise[x + z * CHUNK_WIDTH] / 3.0 + 3.0 + this->rand.nextDouble() * 0.25);
 			int32_t stoneDepth = -1;
 			// Get biome-appropriate top and filler blocks
 			BlockType topBlock = GetTopBlock(biome);
@@ -98,7 +106,7 @@ void GeneratorBeta173::ReplaceBlocksForBiome(Int2 chunkPos, Chunk &c) {
 
 			// Iterate over column top to bottom
 			for (int32_t y = CHUNK_HEIGHT - 1; y >= 0; --y) {
-				int32_t blockIndex = (z * CHUNK_WIDTH_X + x) * CHUNK_HEIGHT + y;
+				int32_t blockIndex = (z * CHUNK_WIDTH + x) * CHUNK_HEIGHT + y;
 				// Place Bedrock at bottom with some randomness
 				if (y <= 0 + this->rand.nextInt(5)) {
 					c.SetBlockType(BLOCK_BEDROCK, BlockIndexToPosition(blockIndex));
@@ -165,9 +173,9 @@ void GeneratorBeta173::ReplaceBlocksForBiome(Int2 chunkPos, Chunk &c) {
  * @param c The chunk that should get its terrain generated
  */
 void GeneratorBeta173::GenerateTerrain(Int2 chunkPos, Chunk &c) {
-	const int32_t xMax = CHUNK_WIDTH_X / 4 + 1;	   // 3
+	const int32_t xMax = CHUNK_WIDTH / 4 + 1;	   // 3
 	const uint8_t yMax = CHUNK_HEIGHT / 8 + 1; // 14
-	const int32_t zMax = CHUNK_WIDTH_Z / 4 + 1;	   // 3
+	const int32_t zMax = CHUNK_WIDTH / 4 + 1;	   // 3
 
 	// Generate 4x16x4 low resolution noise map
 	this->GenerateTerrainNoise(this->terrainNoiseField, Int3{chunkPos.x * 4, 0, chunkPos.y * 4}, Int3{xMax,yMax,zMax});
@@ -175,7 +183,7 @@ void GeneratorBeta173::GenerateTerrain(Int2 chunkPos, Chunk &c) {
 	// Terrain noise is interpolated and only sampled every 4 blocks
 	for (int32_t macroX = 0; macroX < 4; ++macroX) {
 		for (int32_t macroZ = 0; macroZ < 4; ++macroZ) {
-			for (int32_t macroY = 0; macroY < 16; ++macroY) {
+			for (int32_t macroY = 0; macroY < CHUNK_WIDTH; ++macroY) {
 				double verticalLerpStep = 0.125;
 
 				// Get noise cube corners
@@ -215,7 +223,7 @@ void GeneratorBeta173::GenerateTerrain(Int2 chunkPos, Chunk &c) {
 							BlockType blockType = BLOCK_AIR;
 
 							// If water is too cold, turn into ice
-							double temp = this->temperature[(macroX * 4 + subX) * 16 + macroZ * 4 + subZ];
+							double temp = this->temperature[(macroX * 4 + subX) * CHUNK_WIDTH + macroZ * 4 + subZ];
 							int32_t yLevel = macroY * 8 + subY;
 							if (yLevel < WATER_LEVEL) {
 								if (temp < 0.5 && yLevel >= WATER_LEVEL - 1) {
@@ -278,7 +286,7 @@ void GeneratorBeta173::GenerateTerrainNoise(std::vector<double> &terrainMap, Int
 	int32_t xyzIndex = 0;
 	// Used to iterate 2D Noise maps (depth, continentalness)
 	int32_t xzIndex = 0;
-	int32_t scaleFraction = 16 / max.x;
+	int32_t scaleFraction = CHUNK_WIDTH / max.x;
 
 	for (int32_t iX = 0; iX < max.x; ++iX) {
 		int32_t sampleX = iX * scaleFraction + scaleFraction / 2;
@@ -287,8 +295,8 @@ void GeneratorBeta173::GenerateTerrainNoise(std::vector<double> &terrainMap, Int
 			// Sample 2D noises
 			int32_t sampleZ = iZ * scaleFraction + scaleFraction / 2;
 			// Apply biome-noise-dependent variety
-			double temp = this->temperature[sampleX * CHUNK_WIDTH_X + sampleZ];
-			double humi = this->humidity[sampleX * CHUNK_WIDTH_X + sampleZ] * temp;
+			double temp = this->temperature[sampleX * CHUNK_WIDTH + sampleZ];
+			double humi = this->humidity[sampleX * CHUNK_WIDTH + sampleZ] * temp;
 			humi = 1.0 - humi;
 			humi *= humi;
 			humi *= humi;
@@ -364,13 +372,13 @@ void GeneratorBeta173::GenerateTerrainNoise(std::vector<double> &terrainMap, Int
  * @return The Biome at that column
  */
 Biome GeneratorBeta173::GetBiomeAt(Int2 worldPos) {
-	int32_t localX = worldPos.x % CHUNK_WIDTH_X;
-	int32_t localZ = worldPos.y % CHUNK_WIDTH_Z;
+	int32_t localX = worldPos.x % CHUNK_WIDTH;
+	int32_t localZ = worldPos.y % CHUNK_WIDTH;
 	if (localX < 0)
-		localX += CHUNK_WIDTH_X;
+		localX += CHUNK_WIDTH;
 	if (localZ < 0)
-		localZ += CHUNK_WIDTH_Z;
-	return biomeMap[localX + localZ * CHUNK_WIDTH_X];
+		localZ += CHUNK_WIDTH;
+	return biomeMap[localX + localZ * CHUNK_WIDTH];
 }
 
 /**
@@ -385,13 +393,13 @@ bool GeneratorBeta173::PopulateChunk(Int2 chunkPos) {
 
 	/*
 	Int2 blockPos = Int2{
-		chunkPos.x * CHUNK_WIDTH_X,
-		chunkPos.y * CHUNK_WIDTH_Z
+		chunkPos.x * CHUNK_WIDTH,
+		chunkPos.y * CHUNK_WIDTH
 	};
 	Biome biome = GetBiomeAt(
 		Int2{
-			blockPos.x + CHUNK_WIDTH_X, 
-			blockPos.y + CHUNK_WIDTH_Z
+			blockPos.x + CHUNK_WIDTH, 
+			blockPos.y + CHUNK_WIDTH
 		}
 	);
 	this->rand.setSeed(seed);
@@ -402,18 +410,18 @@ bool GeneratorBeta173::PopulateChunk(Int2 chunkPos) {
 
 	// Generate lakes
 	if (this->rand.nextInt(4) == 0) {
-		coord.x = blockPos.x + this->rand.nextInt(CHUNK_WIDTH_X) + 8;
+		coord.x = blockPos.x + this->rand.nextInt(CHUNK_WIDTH) + 8;
 		coord.y = this->rand.nextInt(CHUNK_HEIGHT);
-		coord.z = blockPos.y + this->rand.nextInt(CHUNK_WIDTH_Z) + 8;
+		coord.z = blockPos.y + this->rand.nextInt(CHUNK_WIDTH) + 8;
 		Beta173Feature(BLOCK_WATER_STILL)
 			.GenerateLake(c, this->rand, coord);
 	}
 
 	// Generate lava lakes
 	if (this->rand.nextInt(8) == 0) {
-		coord.x = blockPos.x + this->rand.nextInt(CHUNK_WIDTH_X) + 8;
+		coord.x = blockPos.x + this->rand.nextInt(CHUNK_WIDTH) + 8;
 		coord.y = this->rand.nextInt(this->rand.nextInt(120) + 8);
-		coord.z = blockPos.y + this->rand.nextInt(CHUNK_WIDTH_Z) + 8;
+		coord.z = blockPos.y + this->rand.nextInt(CHUNK_WIDTH) + 8;
 		if (coord.y < WATER_LEVEL || this->rand.nextInt(10) == 0) {
 			Beta173Feature(BLOCK_LAVA_STILL)
 				.GenerateLake(c, this->rand, coord);
@@ -422,88 +430,88 @@ bool GeneratorBeta173::PopulateChunk(Int2 chunkPos) {
 
 	// Generate Dungeons
 	for (int32_t i = 0; i < 8; ++i) {
-		coord.x = blockPos.x + this->rand.nextInt(CHUNK_WIDTH_X) + 8;
+		coord.x = blockPos.x + this->rand.nextInt(CHUNK_WIDTH) + 8;
 		coord.y = this->rand.nextInt(CHUNK_HEIGHT);
-		coord.z = blockPos.y + this->rand.nextInt(CHUNK_WIDTH_Z) + 8;
+		coord.z = blockPos.y + this->rand.nextInt(CHUNK_WIDTH) + 8;
 		Beta173Feature().GenerateDungeon(c, this->rand, coord);
 	}
 
 	// Generate Clay patches
 	for (int32_t i = 0; i < 10; ++i) {
-		coord.x = blockPos.x + this->rand.nextInt(CHUNK_WIDTH_X);
+		coord.x = blockPos.x + this->rand.nextInt(CHUNK_WIDTH);
 		coord.y = this->rand.nextInt(CHUNK_HEIGHT);
-		coord.z = blockPos.y + this->rand.nextInt(CHUNK_WIDTH_Z);
+		coord.z = blockPos.y + this->rand.nextInt(CHUNK_WIDTH);
 		Beta173Feature().GenerateClay(this->world, this->rand, coord, 32);
 	}
 
 	// Generate Dirt blobs
 	for (int32_t i = 0; i < 20; ++i) {
-		coord.x = blockPos.x + this->rand.nextInt(CHUNK_WIDTH_X);
+		coord.x = blockPos.x + this->rand.nextInt(CHUNK_WIDTH);
 		coord.y = this->rand.nextInt(CHUNK_HEIGHT);
-		coord.z = blockPos.y + this->rand.nextInt(CHUNK_WIDTH_Z);
+		coord.z = blockPos.y + this->rand.nextInt(CHUNK_WIDTH);
 		Beta173Feature(BLOCK_DIRT)
 			.GenerateMinable(this->world, this->rand, coord, 32);
 	}
 
 	// Generate Gravel blobs
 	for (int32_t i = 0; i < 10; ++i) {
-		coord.x = blockPos.x + this->rand.nextInt(CHUNK_WIDTH_X);
+		coord.x = blockPos.x + this->rand.nextInt(CHUNK_WIDTH);
 		coord.y = this->rand.nextInt(CHUNK_HEIGHT);
-		coord.z = blockPos.y + this->rand.nextInt(CHUNK_WIDTH_Z);
+		coord.z = blockPos.y + this->rand.nextInt(CHUNK_WIDTH);
 		Beta173Feature(BLOCK_GRAVEL)
 			.GenerateMinable(this->world, this->rand, coord, 32);
 	}
 
 	// Generate Coal Ore Veins
 	for (int32_t i = 0; i < 20; ++i) {
-		coord.x = blockPos.x + this->rand.nextInt(CHUNK_WIDTH_X);
+		coord.x = blockPos.x + this->rand.nextInt(CHUNK_WIDTH);
 		coord.y = this->rand.nextInt(CHUNK_HEIGHT);
-		coord.z = blockPos.y + this->rand.nextInt(CHUNK_WIDTH_Z);
+		coord.z = blockPos.y + this->rand.nextInt(CHUNK_WIDTH);
 		Beta173Feature(BLOCK_ORE_COAL)
-			.GenerateMinable(this->world, this->rand, coord, 16);
+			.GenerateMinable(this->world, this->rand, coord, CHUNK_WIDTH);
 	}
 
 	// Generate Iron Ore Veins
 	for (int32_t i = 0; i < 20; ++i) {
-		coord.x = blockPos.x + this->rand.nextInt(CHUNK_WIDTH_X);
+		coord.x = blockPos.x + this->rand.nextInt(CHUNK_WIDTH);
 		coord.y = this->rand.nextInt(CHUNK_HEIGHT / 2);
-		coord.z = blockPos.y + this->rand.nextInt(CHUNK_WIDTH_Z);
+		coord.z = blockPos.y + this->rand.nextInt(CHUNK_WIDTH);
 		Beta173Feature(BLOCK_ORE_IRON)
 			.GenerateMinable(this->world, this->rand, coord, 8);
 	}
 
 	// Generate Gold Ore Veins
 	for (int32_t i = 0; i < 2; ++i) {
-		coord.x = blockPos.x + this->rand.nextInt(CHUNK_WIDTH_X);
+		coord.x = blockPos.x + this->rand.nextInt(CHUNK_WIDTH);
 		coord.y = this->rand.nextInt(CHUNK_HEIGHT / 4);
-		coord.z = blockPos.y + this->rand.nextInt(CHUNK_WIDTH_Z);
+		coord.z = blockPos.y + this->rand.nextInt(CHUNK_WIDTH);
 		Beta173Feature(BLOCK_ORE_GOLD)
 			.GenerateMinable(this->world, this->rand, coord, 8);
 	}
 
 	// Generate Redstone Ore Veins
 	for (int32_t i = 0; i < 8; ++i) {
-		coord.x = blockPos.x + this->rand.nextInt(CHUNK_WIDTH_X);
+		coord.x = blockPos.x + this->rand.nextInt(CHUNK_WIDTH);
 		coord.y = this->rand.nextInt(CHUNK_HEIGHT / 8);
-		coord.z = blockPos.y + this->rand.nextInt(CHUNK_WIDTH_Z);
+		coord.z = blockPos.y + this->rand.nextInt(CHUNK_WIDTH);
 		Beta173Feature(BLOCK_ORE_REDSTONE_OFF)
 			.GenerateMinable(this->world, this->rand, coord, 7);
 	}
 
 	// Generate Diamond Ore Veins
 	for (int32_t i = 0; i < 1; ++i) {
-		coord.x = blockPos.x + this->rand.nextInt(CHUNK_WIDTH_X);
+		coord.x = blockPos.x + this->rand.nextInt(CHUNK_WIDTH);
 		coord.y = this->rand.nextInt(CHUNK_HEIGHT / 8);
-		coord.z = blockPos.y + this->rand.nextInt(CHUNK_WIDTH_Z);
+		coord.z = blockPos.y + this->rand.nextInt(CHUNK_WIDTH);
 		Beta173Feature(BLOCK_ORE_DIAMOND)
 			.GenerateMinable(this->world, this->rand, coord, 7);
 	}
 
 	// Generate Lapis Lazuli Ore Veins
 	for (int32_t i = 0; i < 1; ++i) {
-		coord.x = blockPos.x + this->rand.nextInt(CHUNK_WIDTH_X);
-		coord.y = this->rand.nextInt(CHUNK_HEIGHT / 8) + this->rand.nextInt(16);
-		coord.z = blockPos.y + this->rand.nextInt(CHUNK_WIDTH_Z);
+		coord.x = blockPos.x + this->rand.nextInt(CHUNK_WIDTH);
+		coord.y = this->rand.nextInt(CHUNK_HEIGHT / 8) + this->rand.nextInt(CHUNK_WIDTH);
+		coord.z = blockPos.y + this->rand.nextInt(CHUNK_WIDTH);
 		Beta173Feature(BLOCK_ORE_LAPIS_LAZULI)
 			.GenerateMinable(this->world, this->rand, coord, 6);
 	}
@@ -540,8 +548,8 @@ bool GeneratorBeta173::PopulateChunk(Int2 chunkPos) {
 
 	// Attempt to generate the specified number of trees
 	for (int32_t i = 0; i < numberOfTrees; ++i) {
-		coord.x = blockPos.x + this->rand.nextInt(CHUNK_WIDTH_X) + 8;
-		coord.z = blockPos.y + this->rand.nextInt(CHUNK_WIDTH_Z) + 8;
+		coord.x = blockPos.x + this->rand.nextInt(CHUNK_WIDTH) + 8;
+		coord.z = blockPos.y + this->rand.nextInt(CHUNK_WIDTH) + 8;
 		coord.y = world->GetHeightValue(Int2{coord.x, coord.z});
 
 		enum TreeState {
@@ -618,9 +626,9 @@ bool GeneratorBeta173::PopulateChunk(Int2 chunkPos) {
 
 	// Generate Dandelions
 	for (int8_t i = 0; i < numberOfFlowers; ++i) {
-		coord.x = blockPos.x + this->rand.nextInt(CHUNK_WIDTH_X) + 8;
+		coord.x = blockPos.x + this->rand.nextInt(CHUNK_WIDTH) + 8;
 		coord.y = this->rand.nextInt(CHUNK_HEIGHT);
-		coord.z = blockPos.y + this->rand.nextInt(CHUNK_WIDTH_Z) + 8;
+		coord.z = blockPos.y + this->rand.nextInt(CHUNK_WIDTH) + 8;
 		Beta173Feature(BLOCK_DANDELION)
 			.GenerateFlowers(this->world, this->rand, coord);
 	}
@@ -652,9 +660,9 @@ bool GeneratorBeta173::PopulateChunk(Int2 chunkPos) {
 			grassMeta = 2;
 		}
 
-		coord.x = blockPos.x + this->rand.nextInt(CHUNK_WIDTH_X) + 8;
+		coord.x = blockPos.x + this->rand.nextInt(CHUNK_WIDTH) + 8;
 		coord.y = this->rand.nextInt(CHUNK_HEIGHT);
-		coord.z = blockPos.y + this->rand.nextInt(CHUNK_WIDTH_Z) + 8;
+		coord.z = blockPos.y + this->rand.nextInt(CHUNK_WIDTH) + 8;
 		Beta173Feature(BLOCK_TALLGRASS, grassMeta)
 			.GenerateTallgrass(this->world, this->rand, coord);
 	}
@@ -665,54 +673,54 @@ bool GeneratorBeta173::PopulateChunk(Int2 chunkPos) {
 		numberOfDeadbushes = 2;
 
 	for (int32_t i = 0; i < numberOfDeadbushes; ++i) {
-		coord.x = blockPos.x + this->rand.nextInt(CHUNK_WIDTH_X) + 8;
+		coord.x = blockPos.x + this->rand.nextInt(CHUNK_WIDTH) + 8;
 		coord.y = this->rand.nextInt(CHUNK_HEIGHT);
-		coord.z = blockPos.y + this->rand.nextInt(CHUNK_WIDTH_Z) + 8;
+		coord.z = blockPos.y + this->rand.nextInt(CHUNK_WIDTH) + 8;
 		Beta173Feature(BLOCK_DEADBUSH)
 			.GenerateDeadbush(this->world, this->rand, coord);
 	}
 
 	// Generate Roses
 	if (this->rand.nextInt(2) == 0) {
-		coord.x = blockPos.x + this->rand.nextInt(CHUNK_WIDTH_X) + 8;
+		coord.x = blockPos.x + this->rand.nextInt(CHUNK_WIDTH) + 8;
 		coord.y = this->rand.nextInt(CHUNK_HEIGHT);
-		coord.z = blockPos.y + this->rand.nextInt(CHUNK_WIDTH_Z) + 8;
+		coord.z = blockPos.y + this->rand.nextInt(CHUNK_WIDTH) + 8;
 		Beta173Feature(BLOCK_ROSE)
 			.GenerateFlowers(this->world, this->rand, coord);
 	}
 
 	// Generate Brown Mushrooms
 	if (this->rand.nextInt(4) == 0) {
-		coord.x = blockPos.x + this->rand.nextInt(CHUNK_WIDTH_X) + 8;
+		coord.x = blockPos.x + this->rand.nextInt(CHUNK_WIDTH) + 8;
 		coord.y = this->rand.nextInt(CHUNK_HEIGHT);
-		coord.z = blockPos.y + this->rand.nextInt(CHUNK_WIDTH_Z) + 8;
+		coord.z = blockPos.y + this->rand.nextInt(CHUNK_WIDTH) + 8;
 		Beta173Feature(BLOCK_MUSHROOM_BROWN)
 			.GenerateFlowers(this->world, this->rand, coord);
 	}
 
 	// Generate Red Mushrooms
 	if (this->rand.nextInt(8) == 0) {
-		coord.x = blockPos.x + this->rand.nextInt(CHUNK_WIDTH_X) + 8;
+		coord.x = blockPos.x + this->rand.nextInt(CHUNK_WIDTH) + 8;
 		coord.y = this->rand.nextInt(CHUNK_HEIGHT);
-		coord.z = blockPos.y + this->rand.nextInt(CHUNK_WIDTH_Z) + 8;
+		coord.z = blockPos.y + this->rand.nextInt(CHUNK_WIDTH) + 8;
 		Beta173Feature(BLOCK_MUSHROOM_RED)
 			.GenerateFlowers(this->world, this->rand, coord);
 	}
 
 	// Generate Sugarcane
 	for (int32_t i = 0; i < 10; ++i) {
-		coord.x = blockPos.x + this->rand.nextInt(CHUNK_WIDTH_X) + 8;
+		coord.x = blockPos.x + this->rand.nextInt(CHUNK_WIDTH) + 8;
 		coord.y = this->rand.nextInt(CHUNK_HEIGHT);
-		coord.z = blockPos.y + this->rand.nextInt(CHUNK_WIDTH_Z) + 8;
+		coord.z = blockPos.y + this->rand.nextInt(CHUNK_WIDTH) + 8;
 		Beta173Feature(BLOCK_SUGARCANE)
 			.GenerateSugarcane(this->world, this->rand, coord);
 	}
 
 	// Generate Pumpkin Patches
 	if (this->rand.nextInt(32) == 0) {
-		coord.x = blockPos.x + this->rand.nextInt(CHUNK_WIDTH_X) + 8;
+		coord.x = blockPos.x + this->rand.nextInt(CHUNK_WIDTH) + 8;
 		coord.y = this->rand.nextInt(CHUNK_HEIGHT);
-		coord.z = blockPos.y + this->rand.nextInt(CHUNK_WIDTH_Z) + 8;
+		coord.z = blockPos.y + this->rand.nextInt(CHUNK_WIDTH) + 8;
 		Beta173Feature(BLOCK_PUMPKIN)
 			.GeneratePumpkins(this->world, this->rand, coord);
 	}
@@ -724,39 +732,39 @@ bool GeneratorBeta173::PopulateChunk(Int2 chunkPos) {
 	}
 	
 	for (int32_t i = 0; i < numberOfCacti; ++i) {
-		coord.x = blockPos.x + this->rand.nextInt(CHUNK_WIDTH_X) + 8;
+		coord.x = blockPos.x + this->rand.nextInt(CHUNK_WIDTH) + 8;
 		coord.y = this->rand.nextInt(CHUNK_HEIGHT);
-		coord.z = blockPos.y + this->rand.nextInt(CHUNK_WIDTH_Z) + 8;
+		coord.z = blockPos.y + this->rand.nextInt(CHUNK_WIDTH) + 8;
 		Beta173Feature(BLOCK_CACTUS)
 			.GenerateCacti(this->world, this->rand, coord);
 	}
 
 	// Generate one-block water sources
 	for (int32_t i = 0; i < 50; ++i) {
-		coord.x = blockPos.x + this->rand.nextInt(CHUNK_WIDTH_X) + 8;
+		coord.x = blockPos.x + this->rand.nextInt(CHUNK_WIDTH) + 8;
 		coord.y = this->rand.nextInt(this->rand.nextInt(120) + 8);
-		coord.z = blockPos.y + this->rand.nextInt(CHUNK_WIDTH_Z) + 8;
+		coord.z = blockPos.y + this->rand.nextInt(CHUNK_WIDTH) + 8;
 		Beta173Feature(BLOCK_WATER_FLOWING)
 			.GenerateLiquid(this->world, this->rand, coord);
 	}
 
 	// Generate one-block lava sources
 	for (int32_t i = 0; i < 20; ++i) {
-		coord.x = blockPos.x + this->rand.nextInt(CHUNK_WIDTH_X) + 8;
+		coord.x = blockPos.x + this->rand.nextInt(CHUNK_WIDTH) + 8;
 		coord.y = this->rand.nextInt(this->rand.nextInt(this->rand.nextInt(112) + 8) + 8);
-		coord.z = blockPos.y + this->rand.nextInt(CHUNK_WIDTH_Z) + 8;
+		coord.z = blockPos.y + this->rand.nextInt(CHUNK_WIDTH) + 8;
 		Beta173Feature(BLOCK_LAVA_FLOWING)
 			.GenerateLiquid(this->world, this->rand, coord);
 	}
 
 	// Place Snow in cold regions
-	Beta173Biome(seed).GenerateTemperature(temperature,weirdness,Int2{blockPos.x + 8, blockPos.y + 8}, Int2{CHUNK_WIDTH_X, CHUNK_WIDTH_Z});
-	for (int32_t x = blockPos.x + 8; x < blockPos.x + 8 + CHUNK_WIDTH_X; ++x) {
-		for (int32_t z = blockPos.y + 8; z < blockPos.y + 8 + CHUNK_WIDTH_Z; ++z) {
+	Beta173Biome(seed).GenerateTemperature(temperature,weirdness,Int2{blockPos.x + 8, blockPos.y + 8}, Int2{CHUNK_WIDTH, CHUNK_WIDTH});
+	for (int32_t x = blockPos.x + 8; x < blockPos.x + 8 + CHUNK_WIDTH; ++x) {
+		for (int32_t z = blockPos.y + 8; z < blockPos.y + 8 + CHUNK_WIDTH; ++z) {
 			int32_t offsetX = x - (blockPos.x + 8);
 			int32_t offsetZ = z - (blockPos.y + 8);
 			int32_t highestBlock = world->GetHighestSolidOrLiquidBlock(Int2{x, z});
-			double temp = this->temperature[offsetX * CHUNK_WIDTH_X + offsetZ] - double(highestBlock - 64) / 64.0 * 0.3;
+			double temp = this->temperature[offsetX * CHUNK_WIDTH + offsetZ] - double(highestBlock - 64) / 64.0 * 0.3;
 			if (temp < 0.5 && highestBlock > 0 && highestBlock < CHUNK_HEIGHT &&
 				world->GetBlockType(Int3{x, highestBlock, z}) == BLOCK_AIR &&
 				IsSolid(world->GetBlockType(Int3{x, highestBlock - 1, z})) &&

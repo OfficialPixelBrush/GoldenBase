@@ -74,9 +74,9 @@ std::string GetVec3(Vec3 position) {
 // Determine the global position based on where within the passed chunk position the block position is
 Int3 LocalToGlobalPosition(Int3 chunkPos, Int3 blockPos) {
 	return Int3 {
-        chunkPos.x*CHUNK_WIDTH_X + blockPos.x,
+        chunkPos.x*CHUNK_WIDTH + blockPos.x,
         blockPos.y,
-        chunkPos.z*CHUNK_WIDTH_Z + blockPos.z
+        chunkPos.z*CHUNK_WIDTH + blockPos.z
     };
 }
 
@@ -99,15 +99,15 @@ Int3 BlockIndexToPosition(int32_t index) {
     pos.y = index % CHUNK_HEIGHT;
     index /= CHUNK_HEIGHT;
 
-    pos.z = index % CHUNK_WIDTH_Z;
-    index /= CHUNK_WIDTH_Z;
+    pos.z = index % CHUNK_WIDTH;
+    index /= CHUNK_WIDTH;
 
     pos.x = index;
     return pos;
 }
 
 int32_t PositionToBlockIndex(Int3 pos) {
-    return pos.y + pos.z * CHUNK_HEIGHT + pos.x * (CHUNK_HEIGHT * CHUNK_WIDTH_Z);
+    return pos.y + pos.z * CHUNK_HEIGHT + pos.x * (CHUNK_HEIGHT * CHUNK_WIDTH);
 }
 
 // Turn a float value into a byte, mapping the range 0-255 to 0°-360°
@@ -119,8 +119,8 @@ int8_t ConvertFloatToPackedByte(float value) {
 Int3 GetBlockPosition(int32_t index) {
     Int3 position;
 
-    position.x = index / (CHUNK_HEIGHT * CHUNK_WIDTH_Z);  // Get x-coordinate
-    index %= (CHUNK_HEIGHT * CHUNK_WIDTH_Z);               // Remainder after dividing by width
+    position.x = index / (CHUNK_HEIGHT * CHUNK_WIDTH);  // Get x-coordinate
+    index %= (CHUNK_HEIGHT * CHUNK_WIDTH);               // Remainder after dividing by width
 
     position.z = index / CHUNK_HEIGHT;                     // Get z-coordinate
     position.y = index % CHUNK_HEIGHT;                     // Get y-coordinate

@@ -20,11 +20,11 @@ enum ChunkState : int8_t {
  */
 class Chunk {
   private:
-	int8_t heightMap[CHUNK_WIDTH_X * CHUNK_WIDTH_Z];
+	int8_t heightMap[CHUNK_WIDTH * CHUNK_WIDTH];
 	uint8_t lowestBlockHeight = CHUNK_HEIGHT - 1;
 	int32_t xPos, zPos;
-	Biome biomeArray[CHUNK_WIDTH_X * CHUNK_WIDTH_Z] = {BIOME_NONE};
-	BlockType blockTypeArray[(CHUNK_WIDTH_X * CHUNK_WIDTH_Z * CHUNK_HEIGHT)];
+	Biome biomeArray[CHUNK_WIDTH * CHUNK_WIDTH] = {BIOME_NONE};
+	BlockType blockTypeArray[(CHUNK_WIDTH * CHUNK_WIDTH * CHUNK_HEIGHT)];
 
   public:
 	int8_t state = ChunkState::Invalid;

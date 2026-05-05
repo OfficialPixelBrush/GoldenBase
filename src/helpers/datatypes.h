@@ -7,11 +7,10 @@
 #include "labels.h"
 
 #define CHUNK_HEIGHT 128
-#define CHUNK_WIDTH_X 16
-#define CHUNK_WIDTH_Z 16
+#define CHUNK_WIDTH 16
 #define WATER_LEVEL CHUNK_HEIGHT/2
 
-#define CHUNK_DATA_SIZE static_cast<size_t>(CHUNK_WIDTH_X * CHUNK_HEIGHT * CHUNK_WIDTH_Z * 2.5)
+#define CHUNK_DATA_SIZE static_cast<size_t>(CHUNK_WIDTH * CHUNK_HEIGHT * CHUNK_WIDTH * 2.5)
 
 #define OLD_CHUNK_FILE_EXTENSION ".cnk"
 #define CHUNK_FILE_EXTENSION ".ncnk"

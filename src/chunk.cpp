@@ -21,8 +21,8 @@ int8_t Chunk::GetHeightValue(uint8_t x, uint8_t z) { return this->heightMap[(z &
 void Chunk::GenerateHeightMap() {
 	int32_t lowestBlock = CHUNK_HEIGHT - 1;
 	int32_t x, z;
-	for (x = 0; x < CHUNK_WIDTH_X; ++x) {
-		for (z = 0; z < CHUNK_WIDTH_Z; ++z) {
+	for (x = 0; x < CHUNK_WIDTH; ++x) {
+		for (z = 0; z < CHUNK_WIDTH; ++z) {
 			int32_t y = CHUNK_HEIGHT - 1;
 
 			for (y = CHUNK_HEIGHT - 1; y > 0; --y) {
@@ -62,8 +62,8 @@ void Chunk::SetBlockTypeAndMeta(BlockType type, int8_t meta, Int3 pos) {
 }
 
 bool Chunk::InChunkBounds(Int3 &pos) {
-	pos.x &= CHUNK_WIDTH_X - 1;
-	pos.z &= CHUNK_WIDTH_Z - 1;
+	pos.x &= CHUNK_WIDTH - 1;
+	pos.z &= CHUNK_WIDTH - 1;
 	if (pos.y < 0 || pos.y >= CHUNK_HEIGHT)
 		return false;
 	return true;

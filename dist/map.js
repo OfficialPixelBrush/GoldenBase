@@ -152,7 +152,8 @@ window.addEventListener('load', () => {
                         </td>
                         <td>
                             <select id="genSelection">
-                                <option value="3">a1.2.0 - b1.7.3</option>
+                                <option value="3">b1.3.0 - b1.7.3</option>
+                                <option value="5">a1.2.0 - b1.2.0_02</option>
                                 <option value="4">inf-20100611 - a1.1.2_01</option>
                                 <option value="2">inf-20100327</option>
                                 <option value="1">inf-20100227</option>

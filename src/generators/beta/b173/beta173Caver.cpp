@@ -33,9 +33,9 @@ void Beta173Caver::CarveCaves(Int2 chunkOffset, Int2 chunkPos, Chunk &c) {
 
 	for (int32_t caveIndex = 0; caveIndex < numberOfCaves; ++caveIndex) {
 		Vec3 offset = VEC3_ZERO;
-		offset.x = double(chunkOffset.x * CHUNK_WIDTH_X + this->rand.nextInt(CHUNK_WIDTH_X));
+		offset.x = double(chunkOffset.x * CHUNK_WIDTH + this->rand.nextInt(CHUNK_WIDTH));
 		offset.y = double(this->rand.nextInt(this->rand.nextInt(120) + 8));
-		offset.z = double(chunkOffset.y * CHUNK_WIDTH_Z + this->rand.nextInt(CHUNK_WIDTH_Z));
+		offset.z = double(chunkOffset.y * CHUNK_WIDTH + this->rand.nextInt(CHUNK_WIDTH));
 		int32_t numberOfNodes = 1;
 		if (this->rand.nextInt(4) == 0) {
 			this->CarveCave(chunkPos, c, offset);
@@ -59,8 +59,8 @@ void Beta173Caver::CarveCave(Int2 chunkPos, Chunk &c, Vec3 offset) {
 void Beta173Caver::CarveCave(Int2 chunkPos, Chunk &c, Vec3 offset,
 							 float tunnelRadius, float carveYaw, float carvePitch, int32_t tunnelStep, int32_t tunnelLength,
 							 double verticalScale) {
-	double chunkCenterX = double(chunkPos.x * CHUNK_WIDTH_X + 8);
-	double chunkCenterZ = double(chunkPos.y * CHUNK_WIDTH_Z + 8);
+	double chunkCenterX = double(chunkPos.x * CHUNK_WIDTH + 8);
+	double chunkCenterZ = double(chunkPos.y * CHUNK_WIDTH + 8);
 	float var21 = 0.0F;
 	float var22 = 0.0F;
 	JavaRandom caveRand = JavaRandom(this->rand.nextLong());
@@ -142,7 +142,7 @@ void Beta173Caver::CarveCave(Int2 chunkPos, Chunk &c, Vec3 offset,
 				for (int32_t blockX = xMin; !waterIsPresent && blockX < xMax; ++blockX) {
 					for (int32_t blockZ = zMin; !waterIsPresent && blockZ < zMax; ++blockZ) {
 						for (int32_t blockY = yMax + 1; !waterIsPresent && blockY >= yMin - 1; --blockY) {
-							int32_t blockIndex = (blockX * CHUNK_WIDTH_Z + blockZ) * CHUNK_HEIGHT + blockY;
+							int32_t blockIndex = (blockX * CHUNK_WIDTH + blockZ) * CHUNK_HEIGHT + blockY;
 							if (blockY >= 0 && blockY < CHUNK_HEIGHT) {
 
 								if (c.GetBlockType(BlockIndexToPosition(blockIndex)) == BLOCK_WATER_FLOWING ||
@@ -165,7 +165,7 @@ void Beta173Caver::CarveCave(Int2 chunkPos, Chunk &c, Vec3 offset,
 
 						for (int32_t blockZ = zMin; blockZ < zMax; ++blockZ) {
 							double var44 = (double(blockZ + chunkPos.y * 16) + 0.5 - offset.z) / var27;
-							int32_t blockIndex = (blockX * CHUNK_WIDTH_Z + blockZ) * CHUNK_HEIGHT + yMax;
+							int32_t blockIndex = (blockX * CHUNK_WIDTH + blockZ) * CHUNK_HEIGHT + yMax;
 							bool isGrassBlock = false;
 							if (var57 * var57 + var44 * var44 < 1.0) {
 								for (int32_t var48 = yMax - 1; var48 >= yMin; --var48) {

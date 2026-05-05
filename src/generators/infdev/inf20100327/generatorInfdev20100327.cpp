@@ -79,8 +79,8 @@ Chunk GeneratorInfdev20100327::GenerateChunk(Int2 chunkPos) {
 	}
 
 	// "Biome" blocks
-	for (int32_t blockX = 0; blockX < CHUNK_WIDTH_X; ++blockX) {
-		for (int32_t blockZ = 0; blockZ < CHUNK_WIDTH_Z; ++blockZ) {
+	for (int32_t blockX = 0; blockX < CHUNK_WIDTH; ++blockX) {
+		for (int32_t blockZ = 0; blockZ < CHUNK_WIDTH; ++blockZ) {
 			int32_t blockIndex = blockX << 11 | blockZ << 7 | 127;
 			int32_t depth = -1;
 

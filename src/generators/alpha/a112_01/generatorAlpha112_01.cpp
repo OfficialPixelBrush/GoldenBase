@@ -39,14 +39,14 @@ Chunk GeneratorAlpha112_01::GenerateChunk(Int2 chunkPos) {
 	c.ClearChunk();
 
 	// Generate Biomes
-	Int2 blockPos = Int2{chunkPos.x * CHUNK_WIDTH_X, chunkPos.y * CHUNK_WIDTH_Z};
+	Int2 blockPos = Int2{chunkPos.x * CHUNK_WIDTH, chunkPos.y * CHUNK_WIDTH};
 
 	// Generate the Terrain, minus any caves, as just stone
 	GenerateTerrain(chunkPos, c);
 	// Replace some of the stone with Biome-appropriate blocks
 	ReplaceBlocksForBiome(chunkPos, c);
 	// Carve caves
-	//caver.CarveCavesForChunk(seed, chunkPos, c);
+	caver.CarveCavesForChunk(seed, chunkPos, c);
 	// Generate heightmap
 	c.GenerateHeightMap();
 	// Try to populate
@@ -71,24 +71,24 @@ void GeneratorAlpha112_01::ReplaceBlocksForBiome(Int2 chunkPos, Chunk &c) {
 	this->stoneNoise.resize(256, 0.0);
 
 	// Populate noise maps
-	this->sandGravelNoiseGen.GenerateOctaves(this->sandNoise, double(chunkPos.x * CHUNK_WIDTH_X),
-											  double(chunkPos.y * CHUNK_WIDTH_Z), 0.0, 16, 16, 1, oneThirtySecond,
+	this->sandGravelNoiseGen.GenerateOctaves(this->sandNoise, double(chunkPos.x * CHUNK_WIDTH),
+											  double(chunkPos.y * CHUNK_WIDTH), 0.0, 16, 16, 1, oneThirtySecond,
 											  oneThirtySecond, 1.0);
-	this->sandGravelNoiseGen.GenerateOctaves(this->gravelNoise, double(chunkPos.x * CHUNK_WIDTH_X), 109.0134,
-											  double(chunkPos.y * CHUNK_WIDTH_Z), 16, 1, 16, oneThirtySecond, 1.0,
+	this->sandGravelNoiseGen.GenerateOctaves(this->gravelNoise, double(chunkPos.y * CHUNK_WIDTH), 109.0134,
+											  double(chunkPos.x * CHUNK_WIDTH), 16, 1, 16, oneThirtySecond, 1.0,
 											  oneThirtySecond);
-	this->stoneNoiseGen.GenerateOctaves(this->stoneNoise, double(chunkPos.x * CHUNK_WIDTH_X), double(chunkPos.y * CHUNK_WIDTH_Z),
+	this->stoneNoiseGen.GenerateOctaves(this->stoneNoise, double(chunkPos.x * CHUNK_WIDTH), double(chunkPos.y * CHUNK_WIDTH),
 										 0.0, 16, 16, 1, oneThirtySecond * 2.0, oneThirtySecond * 2.0,
 										 oneThirtySecond * 2.0);
 
 	// Iterate through entire chunk
-	for (int32_t x = 0; x < CHUNK_WIDTH_X; ++x) {
-		for (int32_t z = 0; z < CHUNK_WIDTH_Z; ++z) {
+	for (int32_t x = 0; x < CHUNK_WIDTH; ++x) {
+		for (int32_t z = 0; z < CHUNK_WIDTH; ++z) {
 			// Get values from noise maps
-			bool sandActive   = this->sandNoise[x + z * CHUNK_WIDTH_X] + this->rand.nextDouble() * 0.2 > 0.0;
-			bool gravelActive = this->gravelNoise[x + z * CHUNK_WIDTH_X] + this->rand.nextDouble() * 0.2 > 3.0;
+			bool sandActive   = this->sandNoise[x + z * CHUNK_WIDTH] + this->rand.nextDouble() * 0.2 > 0.0;
+			bool gravelActive = this->gravelNoise[x + z * CHUNK_WIDTH] + this->rand.nextDouble() * 0.2 > 3.0;
 			int32_t stoneActive =
-				Java::DoubleToInt32(this->stoneNoise[x + z * CHUNK_WIDTH_X] / 3.0 + 3.0 + this->rand.nextDouble() * 0.25);
+				Java::DoubleToInt32(this->stoneNoise[x + z * CHUNK_WIDTH] / 3.0 + 3.0 + this->rand.nextDouble() * 0.25);
 			int32_t stoneDepth = -1;
 
 			// Java always uses grass as top block and dirt as filler — no biome lookup
@@ -97,7 +97,7 @@ void GeneratorAlpha112_01::ReplaceBlocksForBiome(Int2 chunkPos, Chunk &c) {
 
 			// Iterate over column top to bottom
 			for (int32_t y = CHUNK_HEIGHT - 1; y >= 0; --y) {
-				int32_t blockIndex = (z * CHUNK_WIDTH_X + x) * CHUNK_HEIGHT + y;
+				int32_t blockIndex = (x * CHUNK_WIDTH + z) * CHUNK_HEIGHT + y;
 
 				// FIX: Match Java's bedrock roll: nextInt(6) - 1, range [-1, 4]
 				if (y <= 0 + this->rand.nextInt(6) - 1) {
@@ -163,9 +163,9 @@ void GeneratorAlpha112_01::ReplaceBlocksForBiome(Int2 chunkPos, Chunk &c) {
  * @param c The chunk that should get its terrain generated
  */
 void GeneratorAlpha112_01::GenerateTerrain(Int2 chunkPos, Chunk &c) {
-	const int32_t xMax = CHUNK_WIDTH_X / 4 + 1; // 5
+	const int32_t xMax = CHUNK_WIDTH / 4 + 1; // 5
 	const uint8_t yMax = CHUNK_HEIGHT / 8 + 1;  // 17
-	const int32_t zMax = CHUNK_WIDTH_Z / 4 + 1; // 5
+	const int32_t zMax = CHUNK_WIDTH / 4 + 1; // 5
 
 	// Generate low-resolution noise map
 	this->GenerateTerrainNoise(this->terrainNoiseField, Int3{chunkPos.x * 4, 0, chunkPos.y * 4}, Int3{xMax, yMax, zMax});
@@ -349,6 +349,13 @@ void GeneratorAlpha112_01::GenerateTerrainNoise(std::vector<double> &terrainMap,
 				if (iY > max.y - 4) {
 					double heightEdgeFade = double(float(iY - (max.y - 4)) / 3.0F);
 					terrainDensity = (terrainDensity * (1.0 - heightEdgeFade)) + (-10.0 * heightEdgeFade);
+				}
+
+				if (double(iY) < 0.0) {
+					double var35 = (0.0 - double(iY)) / 4.0;
+					if (var35 < 0.0) var35 = 0.0;
+					if (var35 > 1.0) var35 = 1.0;
+					terrainDensity = terrainDensity * (1.0 - var35) + (-10.0 * var35);
 				}
 
 				terrainMap[xyzIndex] = terrainDensity;

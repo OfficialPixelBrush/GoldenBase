@@ -12,7 +12,7 @@
 
 #define MAX_BATCH_SIZE 4  // supports zoomLevel 0..3 (2^3 = 8 chunks)
 
-static uint8_t buffer[(CHUNK_WIDTH_X * MAX_BATCH_SIZE) * (CHUNK_WIDTH_Z * MAX_BATCH_SIZE) * 4];
+static uint8_t buffer[(CHUNK_WIDTH * MAX_BATCH_SIZE) * (CHUNK_WIDTH * MAX_BATCH_SIZE) * 4];
 
 static uint8_t clamp(double v) {
     if (v < 0) return 0;
@@ -103,10 +103,11 @@ Int3 GetBlockColor(int block_id, Int3 biomeColor) {
 
 enum genSelect {
     GEN_INVALID = 0,
-    GEN_BETA_BETA173 = 3,
-    GEN_ALPHA_ALPHA112_01 = 4,
-    GEN_INFDEV_INFDEV20100327 = 2,
-    GEN_INFDEV_INFDEV20100227 = 1,
+    GEN_BETA_BETA173 = 3,           // Beta 1.3.0   - Beta 1.7.3
+    GEN_ALPHA_ALPHA120 = 5,         // Alpha 1.2.0  - Beta 1.2.0_02
+    GEN_ALPHA_ALPHA112_01 = 4,      // Inf-20100611 - Alpha 1.1.2_01
+    GEN_INFDEV_INFDEV20100327 = 2,  // Inf-20100327
+    GEN_INFDEV_INFDEV20100227 = 1,  // Inf-20100227
 };
 
 extern "C" {
@@ -141,6 +142,10 @@ extern "C" {
             default:
             case GEN_BETA_BETA173:
                 generatorPtr = new GeneratorBeta173(currentSeed);
+                break;
+            case GEN_ALPHA_ALPHA120:
+                generatorPtr = new GeneratorBeta173(currentSeed);
+                static_cast<GeneratorBeta173*>(generatorPtr)->gravelFix = false;
                 break;
             case GEN_INFDEV_INFDEV20100227:
                 generatorPtr = new GeneratorInfdev20100227(currentSeed);
@@ -191,8 +196,8 @@ extern "C" {
         if (batchSize < 1)          { batchSize = 1; scale = MAX_BATCH_SIZE; }
         if (scale > MAX_BATCH_SIZE) { scale = MAX_BATCH_SIZE; batchSize = 1; }
 
-        int tileWidth = MAX_BATCH_SIZE * CHUNK_WIDTH_X;   // always constant
-        // (tileHeight = MAX_BATCH_SIZE * CHUNK_WIDTH_Z)
+        int tileWidth = MAX_BATCH_SIZE * CHUNK_WIDTH;   // always constant
+        // (tileHeight = MAX_BATCH_SIZE * CHUNK_WIDTH)
 
         for (int bx = 0; bx < batchSize; bx++) {
             for (int bz = 0; bz < batchSize; bz++) {
@@ -202,8 +207,8 @@ extern "C" {
                 });
                 //Chunk copy = chunk;
 
-                for (int px = 0; px < CHUNK_WIDTH_X; px++) {
-                    for (int pz = 0; pz < CHUNK_WIDTH_Z; pz++) {
+                for (int px = 0; px < CHUNK_WIDTH; px++) {
+                    for (int pz = 0; pz < CHUNK_WIDTH; pz++) {
                         float fr,fg,fb;
                         uint8_t r, g, b;
                         float shadedHeight = 1.0f;
@@ -240,8 +245,8 @@ extern "C" {
                         b = FloatToInt8(fb);
 
                         // Top-left pixel of this block in the output tile
-                        int originX = (bx * CHUNK_WIDTH_X + px) * scale;
-                        int originZ = (bz * CHUNK_WIDTH_Z + pz) * scale;
+                        int originX = (bx * CHUNK_WIDTH + px) * scale;
+                        int originZ = (bz * CHUNK_WIDTH + pz) * scale;
 
                         for (int sy = 0; sy < scale; sy++) {
                             for (int sx = 0; sx < scale; sx++) {

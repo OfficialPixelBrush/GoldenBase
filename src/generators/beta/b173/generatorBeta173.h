@@ -54,4 +54,5 @@ class GeneratorBeta173 : public Generator {
 	~GeneratorBeta173() = default;
 	Chunk GenerateChunk(Int2 chunkPos) override;
 	bool PopulateChunk(Int2 chunkPos) override;
+	bool gravelFix = true;
 };
