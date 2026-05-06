@@ -33,3 +33,4 @@
 /build
 GoldenBase.js
 GoldenBase.wasm
+/.cache

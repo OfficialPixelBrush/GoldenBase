@@ -107,7 +107,7 @@ double NoisePerlin::GenerateNoise(Vec3 coord) {
 void NoisePerlin::GenerateNoise(std::vector<double> &noiseField,
 								Vec3 offset, Int3 size, Vec3 scale,
                                 double amplitude) {
-    if (size.y == 1) {
+    if (size.y == 1 && fastPath2d) {
         int32_t index = 0;
         double invAmp = 1.0 / amplitude;
 

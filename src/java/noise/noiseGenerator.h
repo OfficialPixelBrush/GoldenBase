@@ -24,4 +24,8 @@ class NoiseGenerator {
 	double GenerateNoise(double x, double y, double z);
 	void GenerateNoise(std::vector<double> &var1, double var2, double var4, double var6, int32_t var8, int32_t var9, int32_t var10,
 					   double var11, double var13, double var15, double var17);
+	// The 2D fast-path was added after Alpha 1.1.2_01,
+	// and has a different Y-value from the 3D path,
+	// resulting in different looking terrain
+	bool fastPath2d = true;
 };
