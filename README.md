@@ -33,6 +33,6 @@ Just run the `build.sh` file, then use something like `python3 -m http.server` t
 
 ## Planned generators
 
-- A few more of the Infdev and Alpha generators
+- ~~A few more of the Infdev and Alpha generators~~ ✅
 - Beta 1.8 and Beta 1.9 Generators
 - Early Release Generators
