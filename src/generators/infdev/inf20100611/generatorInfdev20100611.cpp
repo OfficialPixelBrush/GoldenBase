@@ -1,4 +1,4 @@
-#include "GeneratorInfdev20100611.h"
+#include "generatorInfdev20100611.h"
 
 GeneratorInfdev20100611::GeneratorInfdev20100611(int64_t pSeed) : Generator(pSeed) {
 	this->seed = pSeed;
