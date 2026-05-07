@@ -24,4 +24,5 @@ class GeneratorInfdev20100327 : public Generator {
 	~GeneratorInfdev20100327() = default;
 	Chunk GenerateChunk(Int2 chunkPos) override;
 	bool PopulateChunk(Int2 chunkPos) override;
+	bool infdev20100413 = false;
 };

@@ -35,7 +35,7 @@ Just run the `build.sh` file, then use something like `python3 -m http.server` t
 
 - A few more of the ~~~~Alpha generators~~ ✅
 - A few more of the Infdev generators
-    - [ ] Erosion (20100413 - 20100415)
+    - [x] Erosion (20100413 - 20100415)
     - [ ] Big change, more hills and cliffs (20100420 - 20100608)
     - [ ] Large islands, high amplification (20100611 - 20100615)
     - [ ] More gradual coastlines (20100616 - 20100618)

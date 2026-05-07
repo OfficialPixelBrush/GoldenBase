@@ -157,6 +157,10 @@ extern "C" {
             case GEN_INFDEV_INFDEV20100327:
                 generatorPtr = new GeneratorInfdev20100327(currentSeed);
                 break;
+            case GEN_INFDEV_INFDEV20100413:
+                generatorPtr = new GeneratorInfdev20100327(currentSeed);
+                static_cast<GeneratorInfdev20100327*>(generatorPtr)->infdev20100413 = true;
+                break;
             case GEN_ALPHA_ALPHA112_01:
                 generatorPtr = new GeneratorAlpha112_01(currentSeed);
                 break;

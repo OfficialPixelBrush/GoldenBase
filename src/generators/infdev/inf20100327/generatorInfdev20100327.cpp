@@ -9,7 +9,7 @@ GeneratorInfdev20100327::GeneratorInfdev20100327(int64_t pSeed) : Generator(pSee
 	noiseGen3 = NoiseOctaves<NoisePerlin>(rand, 8);
 	noiseGen4 = NoiseOctaves<NoisePerlin>(rand, 4);
 	noiseGen5 = NoiseOctaves<NoisePerlin>(rand, 4);
-	noiseGen6 = NoiseOctaves<NoisePerlin>(rand, 5);
+	noiseGen6 = NoiseOctaves<NoisePerlin>(rand, 5); // Unused
 	mobSpawnerNoise = NoiseOctaves<NoisePerlin>(rand, 5);
 }
 
@@ -81,27 +81,79 @@ Chunk GeneratorInfdev20100327::GenerateChunk(Int2 chunkPos) {
 	// "Biome" blocks
 	for (int32_t blockX = 0; blockX < CHUNK_WIDTH; ++blockX) {
 		for (int32_t blockZ = 0; blockZ < CHUNK_WIDTH; ++blockZ) {
-			int32_t blockIndex = blockX << 11 | blockZ << 7 | 127;
-			int32_t depth = -1;
+			if (!infdev20100413) {
+				int32_t blockIndex = blockX << 11 | blockZ << 7 | 127;
+				int32_t depth = -1;
 
-			for (int32_t blockY = CHUNK_HEIGHT - 1; blockY >= 0; --blockY) {
-				if (c.GetBlockType(BlockIndexToPosition(blockIndex)) == BLOCK_AIR) {
-					depth = -1;
-				} else if (c.GetBlockType(BlockIndexToPosition(blockIndex)) == BLOCK_STONE) {
-					if (depth == -1) {
-						depth = 3;
-						if (blockY >= WATER_LEVEL - 1) {
-							c.SetBlockType(BLOCK_GRASS, BlockIndexToPosition(blockIndex));
-						} else {
+				for (int32_t blockY = CHUNK_HEIGHT - 1; blockY >= 0; --blockY) {
+					if (c.GetBlockType(BlockIndexToPosition(blockIndex)) == BLOCK_AIR) {
+						depth = -1;
+					} else if (c.GetBlockType(BlockIndexToPosition(blockIndex)) == BLOCK_STONE) {
+						if (depth == -1) {
+							depth = 3;
+							if (blockY >= WATER_LEVEL - 1) {
+								c.SetBlockType(BLOCK_GRASS, BlockIndexToPosition(blockIndex));
+							} else {
+								c.SetBlockType(BLOCK_DIRT, BlockIndexToPosition(blockIndex));
+							}
+						} else if (depth > 0) {
+							--depth;
 							c.SetBlockType(BLOCK_DIRT, BlockIndexToPosition(blockIndex));
 						}
-					} else if (depth > 0) {
-						--depth;
-						c.SetBlockType(BLOCK_DIRT, BlockIndexToPosition(blockIndex));
 					}
-				}
 
-				--blockIndex;
+					--blockIndex;
+				}
+			} else {
+				double nX = (double)((chunkPos.x << 4) + blockX);
+				double nZ = (double)((chunkPos.y << 4) + blockZ);
+				bool sandActive = (this->noiseGen4.GenerateOctaves(nX * (1.0 / 32.0), nZ * (1.0 / 32.0), 0.0) + this->rand.nextDouble() * 0.2) > 0.0;
+				bool gravelActive = (this->noiseGen4.GenerateOctaves(nZ * (1.0 / 32.0), 109.0134, nX * (1.0 / 32.0)) + this->rand.nextDouble() * 0.2) > 3.0;
+				int stoneDepth = int(this->noiseGen5.GenerateOctaves(nX * (1.0 / 32.0) * 2.0, nZ * (1.0 / 32.0) * 2.0) / 3.0 + 3.0 + this->rand.nextDouble() * 0.25);
+				int blockIndex = blockX << 11 | blockZ << 7 | 127;
+				int depth = -1;
+				BlockType topBlock = BLOCK_GRASS;
+				BlockType fillerBlock = BLOCK_DIRT;
+
+				for(int32_t blockY = CHUNK_HEIGHT - 1; blockY >= 0; --blockY) {
+					if(c.GetBlockType(BlockIndexToPosition(blockIndex)) == BLOCK_AIR) {
+						depth = -1;
+					} else if(c.GetBlockType(BlockIndexToPosition(blockIndex)) == BLOCK_STONE) {
+						if(depth == -1) {
+							if(stoneDepth <= 0) {
+								topBlock = BLOCK_AIR;
+								fillerBlock = BLOCK_STONE;
+							} else if(blockY >= 60 && blockY <= 65) {
+								topBlock = BLOCK_GRASS;
+								fillerBlock = BLOCK_DIRT;
+								if(gravelActive)
+									topBlock = BLOCK_AIR;
+								if(gravelActive)
+									fillerBlock = BLOCK_GRAVEL;
+								if(sandActive)
+									topBlock = BLOCK_SAND;
+								if(sandActive)
+									fillerBlock = BLOCK_SAND;
+							}
+
+							if(blockY < WATER_LEVEL && topBlock == BLOCK_AIR) {
+								topBlock = BLOCK_WATER_STILL;
+							}
+
+							depth = stoneDepth;
+							if(blockY >= WATER_LEVEL-1) {
+								c.SetBlockType(topBlock, BlockIndexToPosition(blockIndex));
+							} else {
+								c.SetBlockType(fillerBlock, BlockIndexToPosition(blockIndex));
+							}
+						} else if(depth > 0) {
+							--depth;
+							c.SetBlockType(fillerBlock, BlockIndexToPosition(blockIndex));
+						}
+					}
+
+					--blockIndex;
+				}
 			}
 		}
 	}
