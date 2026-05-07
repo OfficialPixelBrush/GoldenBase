@@ -7,6 +7,7 @@
 #include "./generators/alpha/a112_01/generatorAlpha112_01.h"
 #include "./generators/infdev/inf20100227/generatorInfdev20100227.h"
 #include "./generators/infdev/inf20100327/generatorInfdev20100327.h"
+#include "./generators/infdev/inf20100420/generatorInfdev20100420.h"
 #include "biomeColors.h"
 #include "blocks.h"
 
@@ -160,6 +161,9 @@ extern "C" {
             case GEN_INFDEV_INFDEV20100413:
                 generatorPtr = new GeneratorInfdev20100327(currentSeed);
                 static_cast<GeneratorInfdev20100327*>(generatorPtr)->infdev20100413 = true;
+                break;
+            case GEN_INFDEV_INFDEV20100420:
+                generatorPtr = new GeneratorInfdev20100420(currentSeed);
                 break;
             case GEN_ALPHA_ALPHA112_01:
                 generatorPtr = new GeneratorAlpha112_01(currentSeed);
