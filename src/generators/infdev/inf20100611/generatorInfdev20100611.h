@@ -1,5 +1,5 @@
 #include "generator.h"
-
+#include "beta173Caver.h"
 
 /**
  * @brief A faithful reimplementation of the Infdev 20100611 world generator
@@ -23,11 +23,12 @@ class GeneratorInfdev20100611 : public Generator {
     std::vector<double> noise6;
     std::vector<double> noise7;
     std::vector<double> noiseArray;
+	Beta173Caver caver;
 
   public:
 	GeneratorInfdev20100611(int64_t seed);
 	~GeneratorInfdev20100611() = default;
 	Chunk GenerateChunk(Int2 chunkPos) override;
 	bool PopulateChunk(Int2 chunkPos) override;
-	bool infdev20100413 = false;
+	bool infdev20100616 = false;
 };

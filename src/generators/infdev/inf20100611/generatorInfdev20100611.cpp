@@ -4,8 +4,8 @@ GeneratorInfdev20100611::GeneratorInfdev20100611(int64_t pSeed) : Generator(pSee
 	this->seed = pSeed;
 
 	rand = JavaRandom(this->seed);
-	// Consume an extra Random construction to match Java's `new Random(var2)` no-op
-	JavaRandom(this->seed);
+	if (!infdev20100616)
+		JavaRandom(this->seed);
 	noiseGen1 = NoiseOctaves<NoisePerlin>(rand, 16, false);
 	noiseGen2 = NoiseOctaves<NoisePerlin>(rand, 16, false);
 	noiseGen3 = NoiseOctaves<NoisePerlin>(rand, 8, false);
@@ -57,9 +57,11 @@ Chunk GeneratorInfdev20100611::GenerateChunk(Int2 chunkPos) {
 			n7 = n7 * 3.0 - 3.0;
 			if (n7 < 0.0) {
 				n7 /= 2.0;
-				if (n7 < -1.0) // Fix: was `< 2.0`, Java uses `< -1.0`
+				if (n7 < -1.0)
 					n7 = -1.0;
 				n7 /= 1.4;
+				if (infdev20100616)
+					n7 /= 2.0;
 				n6 = 0.0;
 			} else {
 				if (n7 > 1.0)
@@ -171,6 +173,12 @@ Chunk GeneratorInfdev20100611::GenerateChunk(Int2 chunkPos) {
 			BlockType fillerBlock = BLOCK_DIRT;
 
 			for (int32_t blockY = CHUNK_HEIGHT - 1; blockY >= 0; --blockY) {
+				if (infdev20100616) {
+					if (blockY <= 0 + this->rand.nextInt(6) - 1) {
+						c.SetBlockType(BLOCK_BEDROCK, BlockIndexToPosition(blockIndex));
+						continue;
+					}
+				}
 				if (c.GetBlockType(BlockIndexToPosition(blockIndex)) == BLOCK_AIR) {
 					depth = -1;
 				} else if (c.GetBlockType(BlockIndexToPosition(blockIndex)) == BLOCK_STONE) {
@@ -207,6 +215,8 @@ Chunk GeneratorInfdev20100611::GenerateChunk(Int2 chunkPos) {
 			}
 		}
 	}
+	if (infdev20100616)
+		caver.CarveCavesForChunk(seed, chunkPos, c);
 
 	c.GenerateHeightMap();
 	c.state = ChunkState::Generated;
