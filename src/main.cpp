@@ -8,6 +8,7 @@
 #include "./generators/infdev/inf20100227/generatorInfdev20100227.h"
 #include "./generators/infdev/inf20100327/generatorInfdev20100327.h"
 #include "./generators/infdev/inf20100420/generatorInfdev20100420.h"
+#include "./generators/infdev/inf20100611/generatorInfdev20100611.h"
 #include "biomeColors.h"
 #include "blocks.h"
 
@@ -164,6 +165,9 @@ extern "C" {
                 break;
             case GEN_INFDEV_INFDEV20100420:
                 generatorPtr = new GeneratorInfdev20100420(currentSeed);
+                break;
+            case GEN_INFDEV_INFDEV20100611:
+                generatorPtr = new GeneratorInfdev20100611(currentSeed);
                 break;
             case GEN_ALPHA_ALPHA112_01:
                 generatorPtr = new GeneratorAlpha112_01(currentSeed);

@@ -156,7 +156,7 @@ window.addEventListener('load', () => {
                                 <option value="5">a1.2.0 - b1.2.0_02</option>
                                 <option value="4">inf-20100624 - a1.1.2_01</option>
                                 <option value="9" disabled="true">inf-20100616 - inf-20100618</option>
-                                <option value="8" disabled="true">inf-20100611 - inf-20100615</option>
+                                <option value="8">inf-20100611 - inf-20100615</option>
                                 <option value="7">inf-20100420 - inf-20100608</option>
                                 <option value="6">inf-20100413 - inf-20100415</option>
                                 <option value="2">inf-20100327 - inf-20100330</option>
