@@ -3,6 +3,50 @@ const workers = [];
 const queue = [];   // pending tile requests
 const free = [];    // indices of idle workers
 
+const BIOME_SWATCH = {
+    //None:           '#8db360',
+    Plains:         '#8db360',
+    Rainforest:     '#537b09',
+    Swampland:      '#07f9b2',
+    SeasonalForest: '#2d8e49',
+    Forest:         '#056621',
+    Savanna:        '#bdb25f',
+    Shrubland:      '#b5db88',
+    Desert:         '#fa9418',
+    //Hell:           '#ff0000',
+    //Sky:            '#4ee031',
+    Taiga:          '#0b6659',
+    //IceDesert:      '#c4d339',
+    Tundra:         '#ffffff',
+    //Invalid:              '#ff00ff'
+};
+
+function createBiomeSwatch(containerId) {
+    const container = document.getElementById(containerId);
+
+    Object.entries(BIOME_SWATCH).forEach(([name, color]) => {
+        const row = document.createElement('div');
+        row.style.display = 'flex';
+        row.style.alignItems = 'center';
+        row.style.marginBottom = '4px';
+
+        const swatch = document.createElement('div');
+        swatch.style.width = '16px';
+        swatch.style.height = '16px';
+        swatch.style.background = color;
+        swatch.style.border = '1px solid #444';
+        swatch.style.marginRight = '8px';
+
+        const label = document.createElement('code');
+        label.textContent = `${name}`;
+
+        row.appendChild(swatch);
+        row.appendChild(label);
+
+        container.appendChild(row);
+    });
+}
+
 function initWorkers(wasmJsUrl, onReady) {
     let readyCount = 0;
     for (let i = 0; i < WORKER_COUNT; i++) {
@@ -173,7 +217,12 @@ window.addEventListener('load', () => {
                         </td>
                     </tr>
                     <tr>
-                        <td>
+                        <td colspan="2">
+                            <button id="updateGen" style="width:100%">Update Gen</button>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="vertical-align: top;">
                             <details>
                                 <summary>Visualizer Settings</summary>
                                 <input type="checkbox" id="check_heightmap" name="check_heightmap" value="Heightmap" checked="true">
@@ -184,16 +233,19 @@ window.addEventListener('load', () => {
                                 <label for="check_water">Show Water</label><br>
                             </details>
                         </td>
-                        <td>
-                            <button id="updateGen">Update Gen</button>
+                        <td style="vertical-align: top;">
+                            <details>
+                                <summary>Biome Colors (a1.2.0+)</summary>
+                                <div id="biomeSwatches"></div>
+                            </details>
                         </td>
                     </tr>
                     </table>
                 `;
                 return div;
             };
-
             infoControl.addTo(map);
+            createBiomeSwatch('biomeSwatches');
 
             // Prevent clicks from propagating to the map
             L.DomEvent.disableClickPropagation(infoControl.getContainer());
