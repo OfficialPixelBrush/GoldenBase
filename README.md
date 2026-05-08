@@ -26,7 +26,7 @@ Just run the `build.sh` file, then use something like `python3 -m http.server` t
 ## Supported versions/ranges
 
 - Beta 1.3.0 - Beta 1.7.3 (True Beta-era)
-- Alpha v1.2.0 - Beta 1.2.0_02 (Early Beta-era, [Halloween Update terrain generator](https://minecraft.wiki/w/World_generation/History#Halloween_Update_terrain_generator))
+- Alpha 1.2.0 - Beta 1.2.0_02 (Early Beta-era, [Halloween Update terrain generator](https://minecraft.wiki/w/World_generation/History#Halloween_Update_terrain_generator))
 - Infdev 20100624 - Alpha 1.1.2_01 (Alpha-era terrain)
 - Infdev 20100616 - Infdev 20100618 (More gradual coastlines)
 - Infdev 20100611 - Infdev 20100615 (Large islands, high amplification)
