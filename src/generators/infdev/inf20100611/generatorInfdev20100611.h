@@ -26,7 +26,7 @@ class GeneratorInfdev20100611 : public Generator {
 	Beta173Caver caver;
 
   public:
-	GeneratorInfdev20100611(int64_t seed, int divisor);
+	GeneratorInfdev20100611(int64_t seed, float multiplier);
 	~GeneratorInfdev20100611() = default;
 	Chunk GenerateChunk(Int2 chunkPos) override;
 	bool PopulateChunk(Int2 chunkPos) override;

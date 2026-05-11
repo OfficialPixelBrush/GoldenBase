@@ -6,20 +6,19 @@
  * @param pSeed The seed of the generated world
  * @param pWorld The world that the generator belongs to
  */
-GeneratorBeta173::GeneratorBeta173(int64_t pSeed, int divisor) : Generator(pSeed, divisor) {
+GeneratorBeta173::GeneratorBeta173(int64_t pSeed, float multiplier) : Generator(pSeed, multiplier) {
 	this->seed = pSeed;
 
 	rand = JavaRandom(this->seed);
 
 	// Init Terrain Noise
-	lowNoiseGen = NoiseOctaves<NoisePerlin>(rand, 16, 15);
-	for (int i = 0; i < 256; i++) rand.nextInt(256 - i);
-	highNoiseGen = NoiseOctaves<NoisePerlin>(rand, 16);
-	selectorNoiseGen = NoiseOctaves<NoisePerlin>(rand, 8);
-	sandGravelNoiseGen = NoiseOctaves<NoisePerlin>(rand, 4);
-	stoneNoiseGen = NoiseOctaves<NoisePerlin>(rand, 4);
-	continentalnessNoiseGen = NoiseOctaves<NoisePerlin>(rand, 10);
-	depthNoiseGen = NoiseOctaves<NoisePerlin>(rand, 16);
+	lowNoiseGen = NoiseOctaves<NoisePerlin>(rand, 16, 16 * multiplier);
+	highNoiseGen = NoiseOctaves<NoisePerlin>(rand, 16, 16 * multiplier);
+	selectorNoiseGen = NoiseOctaves<NoisePerlin>(rand, 8, 8);
+	sandGravelNoiseGen = NoiseOctaves<NoisePerlin>(rand, 4, multiplier < 1.0 ? 0 : 4 );
+	stoneNoiseGen = NoiseOctaves<NoisePerlin>(rand, 4, multiplier < 1.0 ? 0 : 4);
+	continentalnessNoiseGen = NoiseOctaves<NoisePerlin>(rand, 10, 10 * multiplier);
+	depthNoiseGen = NoiseOctaves<NoisePerlin>(rand, 16, 16);
 	//treeDensityNoiseGen = NoiseOctaves<NoisePerlin>(rand, 8);
 
 	// Init Caver

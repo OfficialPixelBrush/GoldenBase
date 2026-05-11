@@ -223,7 +223,15 @@ window.addEventListener('load', () => {
                     </tr>
                     <tr>
                         <td colspan="2">
-                            <input id="octaveDivisor" style="width:100%" value="1">
+                            <label id="octaveMultiplerLabel">1.000</label>
+                            <input
+                                type="range"
+                                id="octaveMultiplier"
+                                style="width:100%"
+                                min="0.025"
+                                max="1.0"
+                                step="0.025"
+                                value="1.0">
                         </td>
                     </tr>
                     <tr>
@@ -322,12 +330,11 @@ window.addEventListener('load', () => {
                 cancelAllTiles();
                 const genId = Number(document.getElementById('genSelection').value);
                 const seed = document.getElementById('seedValue').value.trim();
-                const divisor = Number(document.getElementById('octaveDivisor').value);
-                console.log(divisor);
+                const multiplier = Number(document.getElementById('octaveMultiplier').value);
 
                 // notify workers
                 workers.forEach(w => {
-                    w.postMessage({ type: 'updateGenAndSeed', seed, genId, divisor });
+                    w.postMessage({ type: 'updateGenAndSeed', seed, genId, multiplier });
                 });
 
                 regenTiles(); // regenerate visible tiles

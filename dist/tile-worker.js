@@ -12,9 +12,9 @@ self.onmessage = async (e) => {
 
         // Drain any update that arrived before we were ready
         if (pendingGenUpdate) {
-            const { seed, genId, divisor } = pendingGenUpdate;
+            const { seed, genId, multiplier } = pendingGenUpdate;
             pendingGenUpdate = null;
-            updateGenAndSeed(seed, genId, divisor ?? 1);
+            updateGenAndSeed(seed, genId, multiplier);
         }
 
         self.postMessage({ type: 'ready' });
@@ -23,8 +23,8 @@ self.onmessage = async (e) => {
 
     if (e.data.type === 'updateGenAndSeed') {
         if (!Module) { pendingGenUpdate = e.data; return; }  // not ready yet
-        const { seed, genId, divisor } = e.data;
-        updateGenAndSeed(seed, genId, divisor ?? 1);
+        const { seed, genId, multiplier } = e.data;
+        updateGenAndSeed(seed, genId, multiplier);
     }
 
     if (e.data.type === 'getTile') {

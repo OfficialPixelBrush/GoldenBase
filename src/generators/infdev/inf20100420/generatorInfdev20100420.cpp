@@ -1,18 +1,18 @@
 #include "generatorInfdev20100420.h"
 
-GeneratorInfdev20100420::GeneratorInfdev20100420(int64_t pSeed, int divisor) : Generator(pSeed, divisor) {
+GeneratorInfdev20100420::GeneratorInfdev20100420(int64_t pSeed, float multiplier) : Generator(pSeed, multiplier) {
 	this->seed = pSeed;
 
 	rand = JavaRandom(this->seed);
 	// Consume an extra Random construction to match Java's `new Random(var2)` no-op
 	JavaRandom(this->seed);
-	noiseGen1 = NoiseOctaves<NoisePerlin>(rand, 16);
-	noiseGen2 = NoiseOctaves<NoisePerlin>(rand, 16);
-	noiseGen3 = NoiseOctaves<NoisePerlin>(rand, 8);
-	noiseGen4 = NoiseOctaves<NoisePerlin>(rand, 4);
-	noiseGen5 = NoiseOctaves<NoisePerlin>(rand, 4);
-	noiseGen6 = NoiseOctaves<NoisePerlin>(rand, 5); // Unused
-	mobSpawnerNoise = NoiseOctaves<NoisePerlin>(rand, 5);
+	noiseGen1 = NoiseOctaves<NoisePerlin>(rand, 16,16);
+	noiseGen2 = NoiseOctaves<NoisePerlin>(rand, 16,16);
+	noiseGen3 = NoiseOctaves<NoisePerlin>(rand, 8 , 8);
+	noiseGen4 = NoiseOctaves<NoisePerlin>(rand, 4 , 4);
+	noiseGen5 = NoiseOctaves<NoisePerlin>(rand, 4 , 4);
+	noiseGen6 = NoiseOctaves<NoisePerlin>(rand, 5 , 5); // Unused
+	mobSpawnerNoise = NoiseOctaves<NoisePerlin>(rand, 5, 5);
 }
 
 Chunk GeneratorInfdev20100420::GenerateChunk(Int2 chunkPos) {

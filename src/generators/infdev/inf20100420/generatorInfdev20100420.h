@@ -22,7 +22,7 @@ class GeneratorInfdev20100420 : public Generator {
     std::vector<double> noiseArray;
 
   public:
-	GeneratorInfdev20100420(int64_t seed, int divisor);
+	GeneratorInfdev20100420(int64_t seed, float multiplier);
 	~GeneratorInfdev20100420() = default;
 	Chunk GenerateChunk(Int2 chunkPos) override;
 	bool PopulateChunk(Int2 chunkPos) override;

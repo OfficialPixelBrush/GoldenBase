@@ -20,10 +20,10 @@ class Chunk;
  */
 class Generator {
   public:
-	Generator(int64_t seed, int divisor = 1);
+	Generator(int64_t seed, float multiplier = 1.0);
 	virtual ~Generator();
 	virtual Chunk GenerateChunk(Int2 chunkPos);
 	virtual bool PopulateChunk(Int2 chunkPos);
 	int64_t seed;
-	int octave_divisor = 1;
+	float octave_multiplier = 1.0;
 };
