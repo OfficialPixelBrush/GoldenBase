@@ -15,8 +15,8 @@ GeneratorBeta173::GeneratorBeta173(int64_t pSeed, float multiplier) : Generator(
 	lowNoiseGen = NoiseOctaves<NoisePerlin>(rand, 16, 16 * multiplier);
 	highNoiseGen = NoiseOctaves<NoisePerlin>(rand, 16, 16 * multiplier);
 	selectorNoiseGen = NoiseOctaves<NoisePerlin>(rand, 8, 8);
-	sandGravelNoiseGen = NoiseOctaves<NoisePerlin>(rand, 4, multiplier < 1.0 ? 0 : 4 );
-	stoneNoiseGen = NoiseOctaves<NoisePerlin>(rand, 4, multiplier < 1.0 ? 0 : 4);
+	sandGravelNoiseGen = NoiseOctaves<NoisePerlin>(rand, 4, lowDetail ? 0 : 4 );
+	stoneNoiseGen = NoiseOctaves<NoisePerlin>(rand, 4, lowDetail ? 0 : 4);
 	continentalnessNoiseGen = NoiseOctaves<NoisePerlin>(rand, 10, 10 * multiplier);
 	depthNoiseGen = NoiseOctaves<NoisePerlin>(rand, 16, 16);
 	//treeDensityNoiseGen = NoiseOctaves<NoisePerlin>(rand, 8);

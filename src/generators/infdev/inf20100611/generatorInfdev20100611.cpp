@@ -9,8 +9,8 @@ GeneratorInfdev20100611::GeneratorInfdev20100611(int64_t pSeed, float multiplier
 	noiseGen1 = NoiseOctaves<NoisePerlin>(rand, 16, 16 * multiplier, false);
 	noiseGen2 = NoiseOctaves<NoisePerlin>(rand, 16, 16 * multiplier, false);
 	noiseGen3 = NoiseOctaves<NoisePerlin>(rand,  8,  8 * multiplier, false);
-	noiseGen4 = NoiseOctaves<NoisePerlin>(rand,  4,  4, false);
-	noiseGen5 = NoiseOctaves<NoisePerlin>(rand,  4,  4, false);
+	noiseGen4 = NoiseOctaves<NoisePerlin>(rand,  4, lowDetail ? 0 : 4, false);
+	noiseGen5 = NoiseOctaves<NoisePerlin>(rand,  4, lowDetail ? 0 : 4, false);
 	noiseGen6 = NoiseOctaves<NoisePerlin>(rand, 10, 10 * multiplier, false);
 	noiseGen7 = NoiseOctaves<NoisePerlin>(rand, 16, 16, false);
 	//mobSpawnerNoise = NoiseOctaves<NoisePerlin>(rand, 8, 8, false);

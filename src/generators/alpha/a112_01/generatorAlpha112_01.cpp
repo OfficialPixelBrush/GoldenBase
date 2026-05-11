@@ -14,8 +14,8 @@ GeneratorAlpha112_01::GeneratorAlpha112_01(int64_t pSeed, float multiplier) : Ge
 	lowNoiseGen = NoiseOctaves<NoisePerlin>(rand, 16, 16 * multiplier, false);
 	highNoiseGen = NoiseOctaves<NoisePerlin>(rand, 16, 16 * multiplier, false);
 	selectorNoiseGen = NoiseOctaves<NoisePerlin>(rand, 8, 8 * multiplier, false);
-	sandGravelNoiseGen = NoiseOctaves<NoisePerlin>(rand, 4, 4, false);
-	stoneNoiseGen = NoiseOctaves<NoisePerlin>(rand, 4, 4, false);
+	sandGravelNoiseGen = NoiseOctaves<NoisePerlin>(rand, 4, lowDetail ? 0 : 4, false);
+	stoneNoiseGen = NoiseOctaves<NoisePerlin>(rand, 4, lowDetail ? 0 : 4, false);
 	continentalnessNoiseGen = NoiseOctaves<NoisePerlin>(rand, 10, 10 * multiplier, false);
 	depthNoiseGen = NoiseOctaves<NoisePerlin>(rand, 16, 16, false);
 	//treeDensityNoiseGen = NoiseOctaves<NoisePerlin>(rand, 8, false);
