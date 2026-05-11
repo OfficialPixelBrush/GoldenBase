@@ -122,7 +122,9 @@ extern "C" {
     Generator* generatorPtr = nullptr;
 
     EMSCRIPTEN_KEEPALIVE
-    void UpdateGenAndSeed(const char* seed_cstr, genSelect genId = GEN_BETA_BETA173) {
+    void UpdateGenAndSeed(const char* seed_cstr, int genId = GEN_BETA_BETA173, int divisor = 1) {
+        std::cout << "DATA: " << divisor << std::endl;
+        //if (divisor < 1) divisor = 1;
         std::string seedString = std::string(seed_cstr);
         currentSeed = 0;
         
@@ -139,7 +141,7 @@ extern "C" {
 
         //std::cout << seed_cstr << " -> " << currentSeed << std::endl;
         
-        activeGenId = genId;
+        activeGenId = static_cast<genSelect>(genId);
         if (generatorPtr) {
             delete generatorPtr;
             generatorPtr = nullptr;
@@ -147,34 +149,34 @@ extern "C" {
         switch(activeGenId) {
             default:
             case GEN_BETA_BETA173:
-                generatorPtr = new GeneratorBeta173(currentSeed);
+                generatorPtr = new GeneratorBeta173(currentSeed, divisor);
                 break;
             case GEN_ALPHA_ALPHA120:
-                generatorPtr = new GeneratorBeta173(currentSeed);
+                generatorPtr = new GeneratorBeta173(currentSeed, divisor);
                 static_cast<GeneratorBeta173*>(generatorPtr)->gravelFix = false;
                 break;
             case GEN_INFDEV_INFDEV20100227:
-                generatorPtr = new GeneratorInfdev20100227(currentSeed);
+                generatorPtr = new GeneratorInfdev20100227(currentSeed, divisor);
                 break;
             case GEN_INFDEV_INFDEV20100327:
-                generatorPtr = new GeneratorInfdev20100327(currentSeed);
+                generatorPtr = new GeneratorInfdev20100327(currentSeed, divisor);
                 break;
             case GEN_INFDEV_INFDEV20100413:
-                generatorPtr = new GeneratorInfdev20100327(currentSeed);
+                generatorPtr = new GeneratorInfdev20100327(currentSeed, divisor);
                 static_cast<GeneratorInfdev20100327*>(generatorPtr)->infdev20100413 = true;
                 break;
             case GEN_INFDEV_INFDEV20100420:
-                generatorPtr = new GeneratorInfdev20100420(currentSeed);
+                generatorPtr = new GeneratorInfdev20100420(currentSeed, divisor);
                 break;
             case GEN_INFDEV_INFDEV20100611:
-                generatorPtr = new GeneratorInfdev20100611(currentSeed);
+                generatorPtr = new GeneratorInfdev20100611(currentSeed, divisor);
                 break;
             case GEN_INFDEV_INFDEV20100616:
-                generatorPtr = new GeneratorInfdev20100611(currentSeed);
+                generatorPtr = new GeneratorInfdev20100611(currentSeed, divisor);
                 static_cast<GeneratorInfdev20100611*>(generatorPtr)->infdev20100616 = true;
                 break;
             case GEN_ALPHA_ALPHA112_01:
-                generatorPtr = new GeneratorAlpha112_01(currentSeed);
+                generatorPtr = new GeneratorAlpha112_01(currentSeed, divisor);
                 break;
         }
     }

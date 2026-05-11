@@ -6,20 +6,21 @@
  * @param pSeed The seed of the generated world
  * @param pWorld The world that the generator belongs to
  */
-GeneratorBeta173::GeneratorBeta173(int64_t pSeed) : Generator(pSeed) {
+GeneratorBeta173::GeneratorBeta173(int64_t pSeed, int divisor) : Generator(pSeed, divisor) {
 	this->seed = pSeed;
 
 	rand = JavaRandom(this->seed);
 
 	// Init Terrain Noise
-	lowNoiseGen = NoiseOctaves<NoisePerlin>(rand, 16);
+	lowNoiseGen = NoiseOctaves<NoisePerlin>(rand, 16, 15);
+	for (int i = 0; i < 256; i++) rand.nextInt(256 - i);
 	highNoiseGen = NoiseOctaves<NoisePerlin>(rand, 16);
 	selectorNoiseGen = NoiseOctaves<NoisePerlin>(rand, 8);
 	sandGravelNoiseGen = NoiseOctaves<NoisePerlin>(rand, 4);
 	stoneNoiseGen = NoiseOctaves<NoisePerlin>(rand, 4);
 	continentalnessNoiseGen = NoiseOctaves<NoisePerlin>(rand, 10);
 	depthNoiseGen = NoiseOctaves<NoisePerlin>(rand, 16);
-	treeDensityNoiseGen = NoiseOctaves<NoisePerlin>(rand, 8);
+	//treeDensityNoiseGen = NoiseOctaves<NoisePerlin>(rand, 8);
 
 	// Init Caver
 	caver = Beta173Caver();

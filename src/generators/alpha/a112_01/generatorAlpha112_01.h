@@ -43,7 +43,7 @@ class GeneratorAlpha112_01 : public Generator {
 	void ReplaceBlocksForBiome(Int2 chunkPos, Chunk &c);
 
   public:
-	GeneratorAlpha112_01(int64_t seed);
+	GeneratorAlpha112_01(int64_t seed, int divisor);
 	~GeneratorAlpha112_01() = default;
 	Chunk GenerateChunk(Int2 chunkPos) override;
 	bool PopulateChunk(Int2 chunkPos) override;

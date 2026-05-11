@@ -10,8 +10,8 @@
 template <typename T> class NoiseOctaves {
   public:
 	NoiseOctaves() {} // This should never be used!
-	NoiseOctaves(int32_t octaves, bool pFastPath2d = true);
-	NoiseOctaves(JavaRandom& rand, int32_t octaves, bool pFastPath2d = true);
+	NoiseOctaves(int32_t octaves, int32_t real_octaves = octaves, bool pFastPath2d = true);
+	NoiseOctaves(JavaRandom& rand, int32_t octaves, int32_t real_octaves = octaves, bool pFastPath2d = true);
 	// Used by infdev
 	double GenerateOctaves(double xOffset, double yOffset, double zOffset);
 	// Used by Perlin
@@ -28,10 +28,11 @@ template <typename T> class NoiseOctaves {
 
   private:
 	int32_t octaves;
+	int32_t real_octaves;
 	std::vector<std::unique_ptr<T>> generatorCollection;
 };
 
-template <typename T> NoiseOctaves<T>::NoiseOctaves(int32_t poctaves, bool pFastPath2d) : octaves(poctaves) {
+template <typename T> NoiseOctaves<T>::NoiseOctaves(int32_t poctaves, int32_t preal_octaves, bool pFastPath2d) : octaves(poctaves), real_octaves(preal_octaves) {
 	for (int32_t i = 0; i < this->octaves; ++i) {
 		auto ptr = std::make_unique<T>(JavaRandom());
 		ptr->fastPath2d = pFastPath2d;
@@ -39,7 +40,7 @@ template <typename T> NoiseOctaves<T>::NoiseOctaves(int32_t poctaves, bool pFast
 	}
 }
 
-template <typename T> NoiseOctaves<T>::NoiseOctaves(JavaRandom& rand, int32_t poctaves, bool pFastPath2d) : octaves(poctaves) {
+template <typename T> NoiseOctaves<T>::NoiseOctaves(JavaRandom& rand, int32_t poctaves, int32_t preal_octaves, bool pFastPath2d) : octaves(poctaves), real_octaves(preal_octaves) {
 	for (int32_t i = 0; i < this->octaves; ++i) {
 		auto ptr = std::make_unique<T>(rand);
 		ptr->fastPath2d = pFastPath2d;

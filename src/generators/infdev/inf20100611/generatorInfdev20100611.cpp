@@ -1,6 +1,6 @@
 #include "generatorInfdev20100611.h"
 
-GeneratorInfdev20100611::GeneratorInfdev20100611(int64_t pSeed) : Generator(pSeed) {
+GeneratorInfdev20100611::GeneratorInfdev20100611(int64_t pSeed, int divisor) : Generator(pSeed, divisor) {
 	this->seed = pSeed;
 
 	rand = JavaRandom(this->seed);

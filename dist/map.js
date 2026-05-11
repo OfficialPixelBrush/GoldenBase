@@ -222,6 +222,11 @@ window.addEventListener('load', () => {
                         </td>
                     </tr>
                     <tr>
+                        <td colspan="2">
+                            <input id="octaveDivisor" style="width:100%" value="1">
+                        </td>
+                    </tr>
+                    <tr>
                         <td style="vertical-align: top;">
                             <details>
                                 <summary>Visualizer Settings</summary>
@@ -317,10 +322,12 @@ window.addEventListener('load', () => {
                 cancelAllTiles();
                 const genId = Number(document.getElementById('genSelection').value);
                 const seed = document.getElementById('seedValue').value.trim();
+                const divisor = Number(document.getElementById('octaveDivisor').value);
+                console.log(divisor);
 
                 // notify workers
                 workers.forEach(w => {
-                    w.postMessage({ type: 'updateGenAndSeed', seed, genId });
+                    w.postMessage({ type: 'updateGenAndSeed', seed, genId, divisor });
                 });
 
                 regenTiles(); // regenerate visible tiles

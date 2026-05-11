@@ -1,7 +1,10 @@
 #include "generator.h"
 
 // Prepare the Generator to utilize some preset numbers and functions
-Generator::Generator([[maybe_unused]] int64_t pSeed) {}
+Generator::Generator([[maybe_unused]] int64_t pSeed, [[maybe_unused]] int divisor) {
+	seed = pSeed;
+	octave_divisor = divisor;
+}
 
 Generator::~Generator() {}
 

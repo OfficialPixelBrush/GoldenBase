@@ -8,13 +8,13 @@ self.onmessage = async (e) => {
         importScripts(e.data.wasmJsUrl);
         Module = await createModule();
         getTile = Module.cwrap('getTile', 'number', ['number', 'number', 'number', 'number']);
-        updateGenAndSeed = Module.cwrap('UpdateGenAndSeed', 'void', ['string', 'number']);
+        updateGenAndSeed = Module.cwrap('UpdateGenAndSeed', 'void', ['string', 'number', 'number']);
 
         // Drain any update that arrived before we were ready
         if (pendingGenUpdate) {
-            const { seed, genId } = pendingGenUpdate;
+            const { seed, genId, divisor } = pendingGenUpdate;
             pendingGenUpdate = null;
-            updateGenAndSeed(seed, genId);
+            updateGenAndSeed(seed, genId, divisor ?? 1);
         }
 
         self.postMessage({ type: 'ready' });
@@ -23,8 +23,8 @@ self.onmessage = async (e) => {
 
     if (e.data.type === 'updateGenAndSeed') {
         if (!Module) { pendingGenUpdate = e.data; return; }  // not ready yet
-        const { seed, genId } = e.data;
-        updateGenAndSeed(seed, genId);
+        const { seed, genId, divisor } = e.data;
+        updateGenAndSeed(seed, genId, divisor ?? 1);
     }
 
     if (e.data.type === 'getTile') {

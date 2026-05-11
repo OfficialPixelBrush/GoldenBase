@@ -5,7 +5,7 @@
  * 
  * @param pSeed The seed of the generated world
  */
-GeneratorAlpha112_01::GeneratorAlpha112_01(int64_t pSeed) : Generator(pSeed) {
+GeneratorAlpha112_01::GeneratorAlpha112_01(int64_t pSeed, int divisor) : Generator(pSeed, divisor) {
 	this->seed = pSeed;
 
 	rand = JavaRandom(this->seed);
@@ -18,7 +18,7 @@ GeneratorAlpha112_01::GeneratorAlpha112_01(int64_t pSeed) : Generator(pSeed) {
 	stoneNoiseGen = NoiseOctaves<NoisePerlin>(rand, 4, false);
 	continentalnessNoiseGen = NoiseOctaves<NoisePerlin>(rand, 10, false);
 	depthNoiseGen = NoiseOctaves<NoisePerlin>(rand, 16, false);
-	treeDensityNoiseGen = NoiseOctaves<NoisePerlin>(rand, 8, false);
+	//treeDensityNoiseGen = NoiseOctaves<NoisePerlin>(rand, 8, false);
 
 	// Init Caver
 	caver = Beta173Caver();
