@@ -38,6 +38,7 @@ class Chunk {
 		);
 	}
 	int8_t GetHeightValue(uint8_t x, uint8_t z);
+	void SetHeightValue(uint8_t x, uint8_t z, int8_t h);
 	void GenerateHeightMap();
 	void ClearChunk();
 

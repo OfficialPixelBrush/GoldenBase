@@ -208,6 +208,7 @@ void GeneratorBeta173::GenerateTerrain(Int2 chunkPos, Chunk &c) {
 
 				// Interpolate the 1/4th scale noise
 				for (int32_t subY = 0; subY < 8; ++subY) {
+					BlockType lastBlockType = BLOCK_AIR;
 					double horizontalLerpStep = 0.25;
 					double terrainX0 = corner000;
 					double terrainX1 = corner010;
@@ -223,6 +224,7 @@ void GeneratorBeta173::GenerateTerrain(Int2 chunkPos, Chunk &c) {
 							// Here the actual block is determined
 							// Default to air block
 							BlockType blockType = BLOCK_AIR;
+							Int3 bpos = BlockIndexToPosition(blockIndex);
 
 							// If water is too cold, turn into ice
 							double temp = this->temperature[(macroX * 4 + subX) * CHUNK_WIDTH + macroZ * 4 + subZ];
@@ -230,6 +232,7 @@ void GeneratorBeta173::GenerateTerrain(Int2 chunkPos, Chunk &c) {
 							if (yLevel < WATER_LEVEL) {
 								if (temp < 0.5 && yLevel >= WATER_LEVEL - 1) {
 									blockType = BLOCK_ICE;
+									c.SetHeightValue(bpos.x, bpos.z, bpos.y+1);
 								} else {
 									blockType = BLOCK_WATER_STILL;
 								}
@@ -239,9 +242,12 @@ void GeneratorBeta173::GenerateTerrain(Int2 chunkPos, Chunk &c) {
 							// replace block with stone
 							if (terrainDensity > 0.0) {
 								blockType = BLOCK_STONE;
+								if (lastBlockType == BLOCK_AIR)
+									c.SetHeightValue(bpos.x, bpos.z, bpos.y+1);
 							}
 
 							c.SetBlockType(blockType, BlockIndexToPosition(blockIndex));
+							lastBlockType = blockType;
 							// Prep for next iteration
 							blockIndex += CHUNK_HEIGHT;
 							terrainDensity += densityStepZ;

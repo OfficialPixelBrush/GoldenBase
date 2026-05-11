@@ -18,8 +18,10 @@ void Chunk::SetBiomes(std::vector<Biome> biomes) {
 }
 
 int8_t Chunk::GetHeightValue(uint8_t x, uint8_t z) { return this->heightMap[(z & 15) << 4 | (x & 15)]; }
+void Chunk::SetHeightValue(uint8_t x, uint8_t z, int8_t h) { this->heightMap[(z & 15) << 4 | (x & 15)] = this->heightMap[(z & 15) << 4 | (x & 15)] == 0 ? this->heightMap[(z & 15) << 4 | (x & 15)] : h; }
 
 void Chunk::GenerateHeightMap() {
+	/*
     for (int8_t x = 0; x < CHUNK_WIDTH; ++x) {
         for (int8_t z = 0; z < CHUNK_WIDTH; ++z) {
 			// Note: While doing the water fast-path is more efficient
@@ -31,7 +33,6 @@ void Chunk::GenerateHeightMap() {
 					break;
 				}
 			}
-			/*
 			// Water-hit fast-path
 			bool in_water = (blockTypeArray[PositionToBlockIndex(Int3{x,WATER_LEVEL-1,z})] == BLOCK_WATER_STILL);
 			if (in_water) {
@@ -50,9 +51,8 @@ void Chunk::GenerateHeightMap() {
 					}
 				}
 			}
-			*/
         }
-    }
+    }*/
 }
 
 void Chunk::ClearChunk() {
