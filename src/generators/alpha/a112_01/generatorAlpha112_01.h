@@ -21,7 +21,7 @@ class GeneratorAlpha112_01 : public Generator {
 	NoiseOctaves<NoisePerlin> stoneNoiseGen;
 	NoiseOctaves<NoisePerlin> continentalnessNoiseGen;
 	NoiseOctaves<NoisePerlin> depthNoiseGen;
-	NoiseOctaves<NoisePerlin> treeDensityNoiseGen;
+	//NoiseOctaves<NoisePerlin> treeDensityNoiseGen;
 
 	// Stored noise Fields
 	std::vector<double> terrainNoiseField;
@@ -43,7 +43,7 @@ class GeneratorAlpha112_01 : public Generator {
 	void ReplaceBlocksForBiome(Int2 chunkPos, Chunk &c);
 
   public:
-	GeneratorAlpha112_01(int64_t seed);
+	GeneratorAlpha112_01(int64_t seed, float multiplier);
 	~GeneratorAlpha112_01() = default;
 	Chunk GenerateChunk(Int2 chunkPos) override;
 	bool PopulateChunk(Int2 chunkPos) override;

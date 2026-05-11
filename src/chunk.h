@@ -5,6 +5,7 @@
 #include "generators/beta/b173/beta173Biome.h"
 #include "helper.h"
 #include <cstdint>
+#include <algorithm>
 
 enum ChunkState : int8_t {
 	Invalid,
@@ -29,7 +30,13 @@ class Chunk {
   public:
 	int8_t state = ChunkState::Invalid;
 
-	Chunk(Int2 pos) : xPos(pos.x), zPos(pos.y) {}
+	Chunk(Int2 pos) : xPos(pos.x), zPos(pos.y) {
+		std::fill(
+			heightMap,
+			heightMap + (CHUNK_WIDTH * CHUNK_WIDTH),
+			WATER_LEVEL - 1
+		);
+	}
 	int8_t GetHeightValue(uint8_t x, uint8_t z);
 	void GenerateHeightMap();
 	void ClearChunk();

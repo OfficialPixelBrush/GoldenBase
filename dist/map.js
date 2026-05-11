@@ -124,7 +124,7 @@ window.addEventListener('load', () => {
 
             const map = L.map('map', {
                 crs: L.CRS.Simple,
-                minZoom: 0,
+                minZoom: -4,  // allows zooming out 4 levels (matches MAX_ZOOM_OUT in main.cpp)
                 maxZoom: 2,
                 noWrap: true,
                 keepBuffer: 10   // default is 2
@@ -280,12 +280,12 @@ window.addEventListener('load', () => {
 
             function clearOffscreenTiles() {
                 const bounds = map.getBounds();
-                const tileZoom = 0;
+                const currentZoom = map.getZoom();
 
                 // Filter the queue: keep only tiles inside current bounds
                 for (let i = queue.length - 1; i >= 0; i--) {
                     const { x, y, z, id } = queue[i];
-                    const latlng = map.unproject([x * scale, y * scale], tileZoom);
+                    const latlng = map.unproject([x * scale, y * scale], currentZoom);
                     if (!bounds.contains(latlng)) {
                         queue.splice(i, 1);      // remove off-screen tile
                         delete pendingTiles[id]; // cancel its promise
@@ -383,7 +383,7 @@ window.addEventListener('load', () => {
                 console.log('All workers ready');
                 new DynamicLayer({
                     tileSize: scale,
-                    minZoom: 0,
+                    minZoom: -4,  // matches map minZoom and MAX_ZOOM_OUT in main.cpp
                     maxZoom: 3,
                     noWrap: true,
                 }).addTo(map);

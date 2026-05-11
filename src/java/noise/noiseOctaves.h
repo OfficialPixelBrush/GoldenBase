@@ -10,8 +10,8 @@
 template <typename T> class NoiseOctaves {
   public:
 	NoiseOctaves() {} // This should never be used!
-	NoiseOctaves(int32_t octaves, bool pFastPath2d = true);
-	NoiseOctaves(JavaRandom& rand, int32_t octaves, bool pFastPath2d = true);
+	NoiseOctaves(int32_t octaves, int32_t real_octaves = -1, bool pFastPath2d = true);
+	NoiseOctaves(JavaRandom& rand, int32_t octaves, int32_t real_octaves = -1, bool pFastPath2d = true);
 	// Used by infdev
 	double GenerateOctaves(double xOffset, double yOffset, double zOffset);
 	// Used by Perlin
@@ -28,10 +28,11 @@ template <typename T> class NoiseOctaves {
 
   private:
 	int32_t octaves;
+	int32_t real_octaves;
 	std::vector<std::unique_ptr<T>> generatorCollection;
 };
 
-template <typename T> NoiseOctaves<T>::NoiseOctaves(int32_t poctaves, bool pFastPath2d) : octaves(poctaves) {
+template <typename T> NoiseOctaves<T>::NoiseOctaves(int32_t poctaves, int32_t preal_octaves, bool pFastPath2d) : octaves(poctaves), real_octaves(preal_octaves) {
 	for (int32_t i = 0; i < this->octaves; ++i) {
 		auto ptr = std::make_unique<T>(JavaRandom());
 		ptr->fastPath2d = pFastPath2d;
@@ -39,7 +40,7 @@ template <typename T> NoiseOctaves<T>::NoiseOctaves(int32_t poctaves, bool pFast
 	}
 }
 
-template <typename T> NoiseOctaves<T>::NoiseOctaves(JavaRandom& rand, int32_t poctaves, bool pFastPath2d) : octaves(poctaves) {
+template <typename T> NoiseOctaves<T>::NoiseOctaves(JavaRandom& rand, int32_t poctaves, int32_t preal_octaves, bool pFastPath2d) : octaves(poctaves), real_octaves(preal_octaves) {
 	for (int32_t i = 0; i < this->octaves; ++i) {
 		auto ptr = std::make_unique<T>(rand);
 		ptr->fastPath2d = pFastPath2d;
@@ -52,7 +53,7 @@ template <typename T> double NoiseOctaves<T>::GenerateOctaves(double xOffset, do
 	double value = 0.0;
 	double scale = 1.0;
 
-	for (int32_t i = 0; i < this->octaves; ++i) {
+	for (int32_t i = 0; i < this->real_octaves; ++i) {
 		value += this->generatorCollection[i]->GenerateNoise(Vec3{xOffset * scale, yOffset * scale, zOffset * scale}) / scale;
 		scale /= 2.0;
 	}
@@ -66,7 +67,7 @@ template <typename T> double NoiseOctaves<T>::GenerateOctaves(double xOffset, do
 	double value = 0.0;
 	double scale = 1.0;
 
-	for (int32_t i = 0; i < this->octaves; ++i) {
+	for (int32_t i = 0; i < this->real_octaves; ++i) {
 		value += this->generatorCollection[i]->GenerateNoise(Vec2{xOffset * scale, yOffset * scale}) / scale;
 		scale /= 2.0;
 	}
@@ -89,7 +90,7 @@ void NoiseOctaves<T>::GenerateOctaves(std::vector<double> &noiseField, double co
 
 	double scale = 1.0;
 
-	for (int32_t octave = 0; octave < this->octaves; ++octave) {
+	for (int32_t octave = 0; octave < this->real_octaves; ++octave) {
 		this->generatorCollection[octave]->GenerateNoise(noiseField, Vec3{coordX, coordY, coordZ}, Int3{sizeX, sizeY, sizeZ}, Vec3{scaleX * scale,
 														 scaleY * scale, scaleZ * scale}, scale);
 		scale /= 2.0;
@@ -126,7 +127,7 @@ void NoiseOctaves<T>::GenerateOctaves(std::vector<double> &noiseField, double va
 	double var21 = 1.0;
 	double var18 = 1.0;
 
-	for (int32_t octave = 0; octave < this->octaves; ++octave) {
+	for (int32_t octave = 0; octave < this->real_octaves; ++octave) {
 		this->generatorCollection[octave]->GenerateNoise(noiseField, var2, var4, var6, scale, var8 * var18,
 														 var10 * var18, 0.55 / var21);
 		var18 *= var12;

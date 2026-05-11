@@ -10,9 +10,9 @@ Beta173Biome::Beta173Biome(int64_t seed) {
     JavaRandom randTemp = JavaRandom(seed * 9871L);
     JavaRandom randHum = JavaRandom(seed * 39811L);
     JavaRandom randWeird = JavaRandom(seed * 543321L);
-    temperatureNoiseGen = NoiseOctaves<NoiseSimplex>(randTemp, 4);
-    humidityNoiseGen = NoiseOctaves<NoiseSimplex>(randHum, 4);
-    weirdnessNoiseGen = NoiseOctaves<NoiseSimplex>(randWeird, 2);
+    temperatureNoiseGen = NoiseOctaves<NoiseSimplex>(randTemp, 4, 4);
+    humidityNoiseGen = NoiseOctaves<NoiseSimplex>(randHum, 4, 4);
+    weirdnessNoiseGen = NoiseOctaves<NoiseSimplex>(randWeird, 2, 2);
 }
 
 /**

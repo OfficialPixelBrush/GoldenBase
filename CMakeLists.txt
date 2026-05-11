@@ -4,6 +4,7 @@ project(GoldenBase)
 # Use Emscripten compiler
 set(CMAKE_CXX_COMPILER emcc)
 set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
 
 # Source files
 set(SOURCES
@@ -36,17 +37,34 @@ set(SOURCES
 # Output JS/WASM
 add_executable(GoldenBase ${SOURCES})
 
+target_compile_options(GoldenBase PRIVATE
+    -DNDEBUG
+)
+
 # Add the flags you had in your emcc command
 target_link_options(GoldenBase PRIVATE
-    "-O3"
-    "-sDISABLE_EXCEPTION_CATCHING=0"
-    "-sWASM=1"
-    "-sEXPORTED_RUNTIME_METHODS=[cwrap,HEAPU8]"
-    "-sMODULARIZE=1"
-    "-sEXPORT_NAME=createModule"
-    "-sALLOW_MEMORY_GROWTH=1"
-    "-sASYNCIFY=1"
-    "--bind"
+    -O3
+    -flto
+    -ffast-math
+    -fno-rtti
+    -sDISABLE_EXCEPTION_CATCHING=0
+    -sWASM=1
+    -sEXPORTED_RUNTIME_METHODS=[cwrap,HEAPU8]
+    -sMODULARIZE=1
+    -sEXPORT_NAME=createModule
+    -sINITIAL_MEMORY=32MB
+    -sALLOW_MEMORY_GROWTH=0
+    -sASSERTIONS=0
+    -sDEMANGLE_SUPPORT=0
+    -sDISABLE_EXCEPTION_CATCHING=1
+    -sELIMINATE_DUPLICATE_FUNCTIONS=1
+    -msimd128
+    --bind
+)
+
+target_link_options(GoldenBase PRIVATE
+    -O3
+    -flto
 )
 
 include_directories(

@@ -1,26 +1,26 @@
 #include "generatorInfdev20100611.h"
 
-GeneratorInfdev20100611::GeneratorInfdev20100611(int64_t pSeed) : Generator(pSeed) {
+GeneratorInfdev20100611::GeneratorInfdev20100611(int64_t pSeed, float multiplier) : Generator(pSeed, multiplier) {
 	this->seed = pSeed;
 
 	rand = JavaRandom(this->seed);
 	if (!infdev20100616)
 		JavaRandom(this->seed);
-	noiseGen1 = NoiseOctaves<NoisePerlin>(rand, 16, false);
-	noiseGen2 = NoiseOctaves<NoisePerlin>(rand, 16, false);
-	noiseGen3 = NoiseOctaves<NoisePerlin>(rand, 8, false);
-	noiseGen4 = NoiseOctaves<NoisePerlin>(rand, 4, false);
-	noiseGen5 = NoiseOctaves<NoisePerlin>(rand, 4, false);
-	noiseGen6 = NoiseOctaves<NoisePerlin>(rand, 10, false);
-	noiseGen7 = NoiseOctaves<NoisePerlin>(rand, 16, false);
-	mobSpawnerNoise = NoiseOctaves<NoisePerlin>(rand, 8, false);
+	noiseGen1 = NoiseOctaves<NoisePerlin>(rand, 16, 16 * multiplier, false);
+	noiseGen2 = NoiseOctaves<NoisePerlin>(rand, 16, 16 * multiplier, false);
+	noiseGen3 = NoiseOctaves<NoisePerlin>(rand,  8,  8 * multiplier, false);
+	noiseGen4 = NoiseOctaves<NoisePerlin>(rand,  4, lowDetail ? 0 : 4, false);
+	noiseGen5 = NoiseOctaves<NoisePerlin>(rand,  4, lowDetail ? 0 : 4, false);
+	noiseGen6 = NoiseOctaves<NoisePerlin>(rand, 10, 10 * multiplier, false);
+	noiseGen7 = NoiseOctaves<NoisePerlin>(rand, 16, 16, false);
+	//mobSpawnerNoise = NoiseOctaves<NoisePerlin>(rand, 8, 8, false);
 }
 
 Chunk GeneratorInfdev20100611::GenerateChunk(Int2 chunkPos) {
 	Chunk c(chunkPos);
 	c.state = ChunkState::Generating;
 	rand.setSeed(int64_t(chunkPos.x) * 341873128712L + int64_t(chunkPos.y) * 132897987541L);
-	c.ClearChunk();
+	//c.ClearChunk();
 
 	int32_t chunkX = chunkPos.x << 2;
 	int32_t chunkZ = chunkPos.y << 2;
@@ -175,7 +175,7 @@ Chunk GeneratorInfdev20100611::GenerateChunk(Int2 chunkPos) {
 			for (int32_t blockY = CHUNK_HEIGHT - 1; blockY >= 0; --blockY) {
 				if (infdev20100616) {
 					if (blockY <= 0 + this->rand.nextInt(6) - 1) {
-						c.SetBlockType(BLOCK_BEDROCK, BlockIndexToPosition(blockIndex));
+						//c.SetBlockType(BLOCK_BEDROCK, BlockIndexToPosition(blockIndex));
 						continue;
 					}
 				}
@@ -203,11 +203,11 @@ Chunk GeneratorInfdev20100611::GenerateChunk(Int2 chunkPos) {
 						if (blockY >= WATER_LEVEL - 1) {
 							c.SetBlockType(topBlock, BlockIndexToPosition(blockIndex));
 						} else {
-							c.SetBlockType(fillerBlock, BlockIndexToPosition(blockIndex));
+							//c.SetBlockType(fillerBlock, BlockIndexToPosition(blockIndex));
 						}
 					} else if (depth > 0) {
 						--depth;
-						c.SetBlockType(fillerBlock, BlockIndexToPosition(blockIndex));
+						//c.SetBlockType(fillerBlock, BlockIndexToPosition(blockIndex));
 					}
 				}
 
@@ -215,10 +215,13 @@ Chunk GeneratorInfdev20100611::GenerateChunk(Int2 chunkPos) {
 			}
 		}
 	}
-	if (infdev20100616)
-		caver.CarveCavesForChunk(seed, chunkPos, c);
+	
+	if (!lowDetail) {
+		if (infdev20100616)
+			caver.CarveCavesForChunk(seed, chunkPos, c);
 
-	c.GenerateHeightMap();
+		c.GenerateHeightMap();
+	}
 	c.state = ChunkState::Generated;
 	return c;
 }

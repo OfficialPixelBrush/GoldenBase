@@ -1,23 +1,23 @@
 #include "generatorInfdev20100327.h"
 
-GeneratorInfdev20100327::GeneratorInfdev20100327(int64_t pSeed) : Generator(pSeed) {
+GeneratorInfdev20100327::GeneratorInfdev20100327(int64_t pSeed, float multiplier) : Generator(pSeed, multiplier) {
 	this->seed = pSeed;
 	
 	rand = JavaRandom(this->seed);
-	noiseGen1 = NoiseOctaves<NoisePerlin>(rand, 16);
-	noiseGen2 = NoiseOctaves<NoisePerlin>(rand, 16);
-	noiseGen3 = NoiseOctaves<NoisePerlin>(rand, 8);
-	noiseGen4 = NoiseOctaves<NoisePerlin>(rand, 4);
-	noiseGen5 = NoiseOctaves<NoisePerlin>(rand, 4);
-	noiseGen6 = NoiseOctaves<NoisePerlin>(rand, 5); // Unused
-	mobSpawnerNoise = NoiseOctaves<NoisePerlin>(rand, 5);
+	noiseGen1 = NoiseOctaves<NoisePerlin>(rand, 16,16);
+	noiseGen2 = NoiseOctaves<NoisePerlin>(rand, 16,16);
+	noiseGen3 = NoiseOctaves<NoisePerlin>(rand, 8 ,8);
+	noiseGen4 = NoiseOctaves<NoisePerlin>(rand, 4 ,lowDetail ? 0 : 4);
+	noiseGen5 = NoiseOctaves<NoisePerlin>(rand, 4 ,lowDetail ? 0 : 4);
+	//noiseGen6 = NoiseOctaves<NoisePerlin>(rand, 5 ,5); // Unused
+	//mobSpawnerNoise = NoiseOctaves<NoisePerlin>(rand, 5, 5);
 }
 
 Chunk GeneratorInfdev20100327::GenerateChunk(Int2 chunkPos) {
 	Chunk c(chunkPos);
 	c.state = ChunkState::Generating;
 	rand.setSeed(int64_t(chunkPos.x) * 341873128712L + int64_t(chunkPos.y) * 132897987541L);
-	c.ClearChunk();
+	//c.ClearChunk();
 
 	// Terrain shape generation
 	for (int32_t macroX = 0; macroX < 4; ++macroX) {
@@ -144,11 +144,11 @@ Chunk GeneratorInfdev20100327::GenerateChunk(Int2 chunkPos) {
 							if(blockY >= WATER_LEVEL-1) {
 								c.SetBlockType(topBlock, BlockIndexToPosition(blockIndex));
 							} else {
-								c.SetBlockType(fillerBlock, BlockIndexToPosition(blockIndex));
+								//c.SetBlockType(fillerBlock, BlockIndexToPosition(blockIndex));
 							}
 						} else if(depth > 0) {
 							--depth;
-							c.SetBlockType(fillerBlock, BlockIndexToPosition(blockIndex));
+							//c.SetBlockType(fillerBlock, BlockIndexToPosition(blockIndex));
 						}
 					}
 
@@ -158,7 +158,8 @@ Chunk GeneratorInfdev20100327::GenerateChunk(Int2 chunkPos) {
 		}
 	}
 
-	c.GenerateHeightMap();
+	if (!lowDetail)
+		c.GenerateHeightMap();
 	c.state = ChunkState::Generated;
 	return c;
 }

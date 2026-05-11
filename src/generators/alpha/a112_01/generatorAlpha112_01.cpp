@@ -5,20 +5,20 @@
  * 
  * @param pSeed The seed of the generated world
  */
-GeneratorAlpha112_01::GeneratorAlpha112_01(int64_t pSeed) : Generator(pSeed) {
+GeneratorAlpha112_01::GeneratorAlpha112_01(int64_t pSeed, float multiplier) : Generator(pSeed, multiplier) {
 	this->seed = pSeed;
 
 	rand = JavaRandom(this->seed);
 
 	// Init Terrain Noise
-	lowNoiseGen = NoiseOctaves<NoisePerlin>(rand, 16, false);
-	highNoiseGen = NoiseOctaves<NoisePerlin>(rand, 16, false);
-	selectorNoiseGen = NoiseOctaves<NoisePerlin>(rand, 8, false);
-	sandGravelNoiseGen = NoiseOctaves<NoisePerlin>(rand, 4, false);
-	stoneNoiseGen = NoiseOctaves<NoisePerlin>(rand, 4, false);
-	continentalnessNoiseGen = NoiseOctaves<NoisePerlin>(rand, 10, false);
-	depthNoiseGen = NoiseOctaves<NoisePerlin>(rand, 16, false);
-	treeDensityNoiseGen = NoiseOctaves<NoisePerlin>(rand, 8, false);
+	lowNoiseGen = NoiseOctaves<NoisePerlin>(rand, 16, 16 * multiplier, false);
+	highNoiseGen = NoiseOctaves<NoisePerlin>(rand, 16, 16 * multiplier, false);
+	selectorNoiseGen = NoiseOctaves<NoisePerlin>(rand, 8, 8 * multiplier, false);
+	sandGravelNoiseGen = NoiseOctaves<NoisePerlin>(rand, 4, lowDetail ? 0 : 4, false);
+	stoneNoiseGen = NoiseOctaves<NoisePerlin>(rand, 4, lowDetail ? 0 : 4, false);
+	continentalnessNoiseGen = NoiseOctaves<NoisePerlin>(rand, 10, 10 * multiplier, false);
+	depthNoiseGen = NoiseOctaves<NoisePerlin>(rand, 16, 16, false);
+	//treeDensityNoiseGen = NoiseOctaves<NoisePerlin>(rand, 8, false);
 
 	// Init Caver
 	caver = Beta173Caver();
@@ -43,12 +43,14 @@ Chunk GeneratorAlpha112_01::GenerateChunk(Int2 chunkPos) {
 
 	// Generate the Terrain, minus any caves, as just stone
 	GenerateTerrain(chunkPos, c);
-	// Replace some of the stone with Biome-appropriate blocks
-	ReplaceBlocksForBiome(chunkPos, c);
-	// Carve caves
-	caver.CarveCavesForChunk(seed, chunkPos, c);
-	// Generate heightmap
-	c.GenerateHeightMap();
+	if (!lowDetail) {
+		// Replace some of the stone with Biome-appropriate blocks
+		ReplaceBlocksForBiome(chunkPos, c);
+		// Carve caves
+		caver.CarveCavesForChunk(seed, chunkPos, c);
+		// Generate heightmap
+		c.GenerateHeightMap();
+	}
 	// Try to populate
 	//c.PopulateChunk(chunkPos);
 	c.state = ChunkState::Generated;
@@ -101,7 +103,7 @@ void GeneratorAlpha112_01::ReplaceBlocksForBiome(Int2 chunkPos, Chunk &c) {
 
 				// FIX: Match Java's bedrock roll: nextInt(6) - 1, range [-1, 4]
 				if (y <= 0 + this->rand.nextInt(6) - 1) {
-					c.SetBlockType(BLOCK_BEDROCK, BlockIndexToPosition(blockIndex));
+					//c.SetBlockType(BLOCK_BEDROCK, BlockIndexToPosition(blockIndex));
 					continue;
 				}
 
@@ -143,11 +145,11 @@ void GeneratorAlpha112_01::ReplaceBlocksForBiome(Int2 chunkPos, Chunk &c) {
 						if (y >= WATER_LEVEL - 1) {
 							c.SetBlockType(topBlock, BlockIndexToPosition(blockIndex));
 						} else {
-							c.SetBlockType(fillerBlock, BlockIndexToPosition(blockIndex));
+							//c.SetBlockType(fillerBlock, BlockIndexToPosition(blockIndex));
 						}
 					} else if (stoneDepth > 0) {
 						--stoneDepth;
-						c.SetBlockType(fillerBlock, BlockIndexToPosition(blockIndex));
+						//c.SetBlockType(fillerBlock, BlockIndexToPosition(blockIndex));
 						// FIX: Removed sandstone generation — not present in Java
 					}
 				}

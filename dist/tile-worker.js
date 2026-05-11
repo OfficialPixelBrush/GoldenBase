@@ -24,7 +24,7 @@ self.onmessage = async (e) => {
     if (e.data.type === 'updateGenAndSeed') {
         if (!Module) { pendingGenUpdate = e.data; return; }  // not ready yet
         const { seed, genId } = e.data;
-        updateGenAndSeed(seed, genId);
+        updateGenAndSeed(seed, genId );
     }
 
     if (e.data.type === 'getTile') {

@@ -1,4 +1,5 @@
 #include "chunk.h"
+#include "helpers/datatypes.h"
 #include <iostream>
 
 Biome Chunk::GetBiome(int32_t x, int32_t z) {
@@ -19,24 +20,28 @@ void Chunk::SetBiomes(std::vector<Biome> biomes) {
 int8_t Chunk::GetHeightValue(uint8_t x, uint8_t z) { return this->heightMap[(z & 15) << 4 | (x & 15)]; }
 
 void Chunk::GenerateHeightMap() {
-	int32_t lowestBlock = CHUNK_HEIGHT - 1;
-	int32_t x, z;
-	for (x = 0; x < CHUNK_WIDTH; ++x) {
-		for (z = 0; z < CHUNK_WIDTH; ++z) {
-			int32_t y = CHUNK_HEIGHT - 1;
-
-			for (y = CHUNK_HEIGHT - 1; y > 0; --y) {
-				if (IsOpaque(int16_t(GetBlockType(Int3{x, y-1, z}))))
-					break;
+    for (int8_t x = 0; x < CHUNK_WIDTH; ++x) {
+        for (int8_t z = 0; z < CHUNK_WIDTH; ++z) {
+			// Water-hit fast-path
+			bool in_water = (blockTypeArray[PositionToBlockIndex(Int3{x,WATER_LEVEL-1,z})] == BLOCK_WATER_STILL);
+			if (in_water) {
+				for (int8_t y = WATER_LEVEL-1; y >= 0; --y) {
+					if (IsOpaque(blockTypeArray[PositionToBlockIndex(Int3{x,y-1,z})])) {
+						heightMap[(z << 4) | x] = (int8_t)y;
+						break;
+					}
+				}
+			} else {
+				// Fallback to normal heightmap gen
+				for (int8_t y = CHUNK_HEIGHT - 1; y >= 0; --y) {
+					if (IsOpaque(blockTypeArray[PositionToBlockIndex(Int3{x,y-1,z})])) {
+						heightMap[(z << 4) | x] = (int8_t)y;
+						break;
+					}
+				}
 			}
-
-			this->heightMap[z << 4 | x] = int8_t(y);
-			if (y < lowestBlock) {
-				lowestBlock = y;
-			}
-		}
-	}
-	this->lowestBlockHeight = lowestBlock;
+        }
+    }
 }
 
 void Chunk::ClearChunk() {

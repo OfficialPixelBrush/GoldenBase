@@ -12,9 +12,15 @@
 #include "biomeColors.h"
 #include "blocks.h"
 
-#define MAX_BATCH_SIZE 4  // supports zoomLevel 0..3 (2^3 = 8 chunks)
+#define MAX_BATCH_SIZE 4  // supports zoomLevel 0..3 (2^3 = 8 chunks per tile side)
+// Negative zoomLevel zooms out: each step doubles the number of chunks per tile side.
+// MAX_ZOOM_OUT controls how far out we allow (e.g. 3 → 32 chunks per side at level -3).
+#define MAX_ZOOM_OUT 4
+// Low-detail multiplier used when zoomed out beyond 1:1 pixel scale (zoomLevel < 0).
+#define LOW_DETAIL_MULTIPLIER 0.01f
 
 static uint8_t buffer[(CHUNK_WIDTH * MAX_BATCH_SIZE) * (CHUNK_WIDTH * MAX_BATCH_SIZE) * 4];
+// The output tile is always MAX_BATCH_SIZE*CHUNK_WIDTH pixels square, regardless of zoom level.
 
 static uint8_t clamp(double v) {
     if (v < 0) return 0;
@@ -120,9 +126,12 @@ extern "C" {
     int64_t currentSeed = 3257840388504953787;
     genSelect activeGenId = GEN_BETA_BETA173;
     Generator* generatorPtr = nullptr;
+    // Low-detail generator used when zoomLevel < 0 (zoomed out beyond 1:1).
+    // Created with LOW_DETAIL_MULTIPLIER to reduce noise octave count for speed.
+    Generator* lowDetailGeneratorPtr = nullptr;
 
     EMSCRIPTEN_KEEPALIVE
-    void UpdateGenAndSeed(const char* seed_cstr, genSelect genId = GEN_BETA_BETA173) {
+    void UpdateGenAndSeed(const char* seed_cstr, int genId = GEN_BETA_BETA173) {
         std::string seedString = std::string(seed_cstr);
         currentSeed = 0;
         
@@ -133,50 +142,53 @@ extern "C" {
         if (isNumber) {
             currentSeed = std::strtoll(seedString.c_str(), nullptr, 10);
         } else {
-            //std::cout << "Non-numeric seed!" << std::endl;
             currentSeed = int64_t(hashCode(seedString));
         }
-
-        //std::cout << seed_cstr << " -> " << currentSeed << std::endl;
         
-        activeGenId = genId;
-        if (generatorPtr) {
-            delete generatorPtr;
-            generatorPtr = nullptr;
-        }
-        switch(activeGenId) {
-            default:
-            case GEN_BETA_BETA173:
-                generatorPtr = new GeneratorBeta173(currentSeed);
-                break;
-            case GEN_ALPHA_ALPHA120:
-                generatorPtr = new GeneratorBeta173(currentSeed);
-                static_cast<GeneratorBeta173*>(generatorPtr)->gravelFix = false;
-                break;
-            case GEN_INFDEV_INFDEV20100227:
-                generatorPtr = new GeneratorInfdev20100227(currentSeed);
-                break;
-            case GEN_INFDEV_INFDEV20100327:
-                generatorPtr = new GeneratorInfdev20100327(currentSeed);
-                break;
-            case GEN_INFDEV_INFDEV20100413:
-                generatorPtr = new GeneratorInfdev20100327(currentSeed);
-                static_cast<GeneratorInfdev20100327*>(generatorPtr)->infdev20100413 = true;
-                break;
-            case GEN_INFDEV_INFDEV20100420:
-                generatorPtr = new GeneratorInfdev20100420(currentSeed);
-                break;
-            case GEN_INFDEV_INFDEV20100611:
-                generatorPtr = new GeneratorInfdev20100611(currentSeed);
-                break;
-            case GEN_INFDEV_INFDEV20100616:
-                generatorPtr = new GeneratorInfdev20100611(currentSeed);
-                static_cast<GeneratorInfdev20100611*>(generatorPtr)->infdev20100616 = true;
-                break;
-            case GEN_ALPHA_ALPHA112_01:
-                generatorPtr = new GeneratorAlpha112_01(currentSeed);
-                break;
-        }
+        activeGenId = static_cast<genSelect>(genId);
+
+        // Helper: allocate a generator for the given genId, seed, and multiplier
+        auto makeGenerator = [&](float mult) -> Generator* {
+            switch(activeGenId) {
+                default:
+                case GEN_BETA_BETA173:
+                    return new GeneratorBeta173(currentSeed, mult);
+                case GEN_ALPHA_ALPHA120: {
+                    auto* g = new GeneratorBeta173(currentSeed, mult);
+                    g->gravelFix = false;
+                    return g;
+                }
+                case GEN_INFDEV_INFDEV20100227:
+                    return new GeneratorInfdev20100227(currentSeed, mult);
+                case GEN_INFDEV_INFDEV20100327:
+                    return new GeneratorInfdev20100327(currentSeed, mult);
+                case GEN_INFDEV_INFDEV20100413: {
+                    auto* g = new GeneratorInfdev20100327(currentSeed, mult);
+                    g->infdev20100413 = true;
+                    return g;
+                }
+                case GEN_INFDEV_INFDEV20100420:
+                    return new GeneratorInfdev20100420(currentSeed, mult);
+                case GEN_INFDEV_INFDEV20100611:
+                    return new GeneratorInfdev20100611(currentSeed, mult);
+                case GEN_INFDEV_INFDEV20100616: {
+                    auto* g = new GeneratorInfdev20100611(currentSeed, mult);
+                    g->infdev20100616 = true;
+                    return g;
+                }
+                case GEN_ALPHA_ALPHA112_01:
+                    return new GeneratorAlpha112_01(currentSeed, mult);
+            }
+        };
+
+        // Replace normal-detail generator
+        if (generatorPtr) { delete generatorPtr; generatorPtr = nullptr; }
+        generatorPtr = makeGenerator(1.0);
+
+        // Replace low-detail generator (used when zoomed out beyond 1:1)
+        if (lowDetailGeneratorPtr) { delete lowDetailGeneratorPtr; lowDetailGeneratorPtr = nullptr; }
+        lowDetailGeneratorPtr = makeGenerator(LOW_DETAIL_MULTIPLIER);
+        lowDetailGeneratorPtr->lowDetail = true;
     }
     
     /*
@@ -195,40 +207,67 @@ extern "C" {
 
     EMSCRIPTEN_KEEPALIVE
     uint8_t* getTile(int x, int z, int zoomLevel, int32_t options) {
-        //std::cout << x << ", " << z << ": " << zoomLevel << std::endl;
         bool heightmap      = (options & 1) > 0;
         bool blockColors    = (options & 2) > 0;
         bool showWater      = (options & 4) > 0;
-        // zoomLevel < 0 : zoomed out — more chunks, 1px per block
-        // zoomLevel = 0 : MAX_BATCH_SIZE chunks, 1px per block  (base)
-        // zoomLevel > 0 : fewer chunks, scale px per block
-        //
-        // At base (zoomLevel=0): batchSize=MAX_BATCH_SIZE, scale=1
-        // Each step up halves the batch and doubles the scale:
+
+        // ── Zoom-level semantics ──────────────────────────────────────────────
+        // zoomLevel > 0  : zoomed IN  — fewer chunks, each block drawn at scale×scale pixels
         //   batchSize = MAX_BATCH_SIZE >> zoomLevel  (min 1)
-        //   scale     = 1 << zoomLevel               (max MAX_BATCH_SIZE)
-        // Buffer is always exactly MAX_BATCH_SIZE*CHUNK_WIDTH pixels wide.
+        //   scale     = 1 << zoomLevel
+        //   stride    = 1  (every block is sampled)
+        //
+        // zoomLevel = 0  : base — MAX_BATCH_SIZE chunks per side, 1px per block
+        //
+        // zoomLevel < 0  : zoomed OUT — more chunks per tile, 1px per sampled block
+        //   batchSize = MAX_BATCH_SIZE << (-zoomLevel)  (more chunks)
+        //   scale     = 1
+        //   stride    = 1 << (-zoomLevel)  (sample every stride-th block per chunk)
+        //   Uses lowDetailGeneratorPtr for faster (lower-octave) generation.
+        //
+        // The output tile is always (MAX_BATCH_SIZE*CHUNK_WIDTH)² pixels.
+        // ─────────────────────────────────────────────────────────────────────
 
-        int batchSize = MAX_BATCH_SIZE >> zoomLevel;
-        int scale     = 1 << zoomLevel;
+        int tileWidth = MAX_BATCH_SIZE * CHUNK_WIDTH;   // constant: 64
 
-        // Clamp to valid range
-        if (batchSize < 1)          { batchSize = 1; scale = MAX_BATCH_SIZE; }
-        if (scale > MAX_BATCH_SIZE) { scale = MAX_BATCH_SIZE; batchSize = 1; }
+        int batchSize, scale, stride;
+        Generator* gen;
 
-        int tileWidth = MAX_BATCH_SIZE * CHUNK_WIDTH;   // always constant
-        // (tileHeight = MAX_BATCH_SIZE * CHUNK_WIDTH)
+        if (zoomLevel >= 0) {
+            // Zoomed in (or base)
+            batchSize = MAX_BATCH_SIZE >> zoomLevel;
+            scale     = 1 << zoomLevel;
+            stride    = 1;
+            if (batchSize < 1)          { batchSize = 1; scale = MAX_BATCH_SIZE; }
+            if (scale > MAX_BATCH_SIZE) { scale = MAX_BATCH_SIZE; batchSize = 1; }
+            gen = generatorPtr;
+        } else {
+            // Zoomed out — clamp to MAX_ZOOM_OUT
+            int zoomOut = -zoomLevel;
+            if (zoomOut > MAX_ZOOM_OUT) zoomOut = MAX_ZOOM_OUT;
+            batchSize = MAX_BATCH_SIZE << zoomOut;   // more chunks to cover
+            scale     = 1;
+            stride    = 1 << zoomOut;                // sample 1 in every stride blocks
+            if (zoomLevel < -1) {
+                gen = lowDetailGeneratorPtr ? lowDetailGeneratorPtr : generatorPtr;
+                blockColors = false;
+                heightmap = false;
+            } else {
+                gen = generatorPtr;
+            }
+        }
 
         for (int bx = 0; bx < batchSize; bx++) {
             for (int bz = 0; bz < batchSize; bz++) {
-                Chunk chunk = generatorPtr->GenerateChunk(Int2{
+                Chunk chunk = gen->GenerateChunk(Int2{
                     x * batchSize + bx,
                     z * batchSize + bz
                 });
-                //Chunk copy = chunk;
 
-                for (int px = 0; px < CHUNK_WIDTH; px++) {
-                    for (int pz = 0; pz < CHUNK_WIDTH; pz++) {
+                // Which output pixel column/row does this chunk contribute to?
+                // At stride>1 we only write one pixel per stride blocks.
+                for (int px = 0; px < CHUNK_WIDTH; px += stride) {
+                    for (int pz = 0; pz < CHUNK_WIDTH; pz += stride) {
                         float fr,fg,fb;
                         uint8_t r, g, b;
                         float shadedHeight = 1.0f;
@@ -264,18 +303,31 @@ extern "C" {
                         g = FloatToInt8(fg);
                         b = FloatToInt8(fb);
 
-                        // Top-left pixel of this block in the output tile
-                        int originX = (bx * CHUNK_WIDTH + px) * scale;
-                        int originZ = (bz * CHUNK_WIDTH + pz) * scale;
-
-                        for (int sy = 0; sy < scale; sy++) {
-                            for (int sx = 0; sx < scale; sx++) {
-                                int idx = ((originZ + sy) * tileWidth + (originX + sx)) * 4;
-                                buffer[idx + 0] = r;
-                                buffer[idx + 1] = g;
-                                buffer[idx + 2] = b;
-                                buffer[idx + 3] = 255;
+                        // Output pixel position: each (chunk, sampled-block) maps to one pixel.
+                        // For zoom-out: pixel (outX, outZ) = (bx*(CHUNK_WIDTH/stride) + px/stride, ...)
+                        // For zoom-in:  pixel origin (bx*CHUNK_WIDTH + px)*scale, drawn scale×scale.
+                        if (scale > 1) {
+                            int originX = (bx * CHUNK_WIDTH + px) * scale;
+                            int originZ = (bz * CHUNK_WIDTH + pz) * scale;
+                            for (int sy = 0; sy < scale; sy++) {
+                                for (int sx = 0; sx < scale; sx++) {
+                                    int idx = ((originZ + sy) * tileWidth + (originX + sx)) * 4;
+                                    buffer[idx + 0] = r;
+                                    buffer[idx + 1] = g;
+                                    buffer[idx + 2] = b;
+                                    buffer[idx + 3] = 255;
+                                }
                             }
+                        } else {
+                            // stride >= 1: one output pixel per sampled block
+                            int samplesPerChunk = CHUNK_WIDTH / stride;   // e.g. 16, 8, 4...
+                            int outX = bx * samplesPerChunk + px / stride;
+                            int outZ = bz * samplesPerChunk + pz / stride;
+                            int idx = (outZ * tileWidth + outX) * 4;
+                            buffer[idx + 0] = r;
+                            buffer[idx + 1] = g;
+                            buffer[idx + 2] = b;
+                            buffer[idx + 3] = 255;
                         }
                     }
                 }
