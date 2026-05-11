@@ -175,7 +175,7 @@ Chunk GeneratorInfdev20100611::GenerateChunk(Int2 chunkPos) {
 			for (int32_t blockY = CHUNK_HEIGHT - 1; blockY >= 0; --blockY) {
 				if (infdev20100616) {
 					if (blockY <= 0 + this->rand.nextInt(6) - 1) {
-						c.SetBlockType(BLOCK_BEDROCK, BlockIndexToPosition(blockIndex));
+						//c.SetBlockType(BLOCK_BEDROCK, BlockIndexToPosition(blockIndex));
 						continue;
 					}
 				}
@@ -203,11 +203,11 @@ Chunk GeneratorInfdev20100611::GenerateChunk(Int2 chunkPos) {
 						if (blockY >= WATER_LEVEL - 1) {
 							c.SetBlockType(topBlock, BlockIndexToPosition(blockIndex));
 						} else {
-							c.SetBlockType(fillerBlock, BlockIndexToPosition(blockIndex));
+							//c.SetBlockType(fillerBlock, BlockIndexToPosition(blockIndex));
 						}
 					} else if (depth > 0) {
 						--depth;
-						c.SetBlockType(fillerBlock, BlockIndexToPosition(blockIndex));
+						//c.SetBlockType(fillerBlock, BlockIndexToPosition(blockIndex));
 					}
 				}
 
@@ -215,10 +215,13 @@ Chunk GeneratorInfdev20100611::GenerateChunk(Int2 chunkPos) {
 			}
 		}
 	}
-	if (infdev20100616)
-		caver.CarveCavesForChunk(seed, chunkPos, c);
+	
+	if (!lowDetail) {
+		if (infdev20100616)
+			caver.CarveCavesForChunk(seed, chunkPos, c);
 
-	c.GenerateHeightMap();
+		c.GenerateHeightMap();
+	}
 	c.state = ChunkState::Generated;
 	return c;
 }

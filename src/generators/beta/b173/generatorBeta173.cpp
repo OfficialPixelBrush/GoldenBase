@@ -51,9 +51,9 @@ Chunk GeneratorBeta173::GenerateChunk(Int2 chunkPos) {
 		ReplaceBlocksForBiome(chunkPos, c);
 		// Carve caves
 		caver.CarveCavesForChunk(seed, chunkPos, c);
+		// Generate heightmap
+		c.GenerateHeightMap();
 	}
-	// Generate heightmap
-	c.GenerateHeightMap();
 	// Try to populate
 	//c.PopulateChunk(chunkPos);
 	c.state = ChunkState::Generated;
@@ -111,7 +111,7 @@ void GeneratorBeta173::ReplaceBlocksForBiome(Int2 chunkPos, Chunk &c) {
 				int32_t blockIndex = (z * CHUNK_WIDTH + x) * CHUNK_HEIGHT + y;
 				// Place Bedrock at bottom with some randomness
 				if (y <= 0 + this->rand.nextInt(5)) {
-					c.SetBlockType(BLOCK_BEDROCK, BlockIndexToPosition(blockIndex));
+					//c.SetBlockType(BLOCK_BEDROCK, BlockIndexToPosition(blockIndex));
 					continue;
 				}
 
@@ -152,11 +152,11 @@ void GeneratorBeta173::ReplaceBlocksForBiome(Int2 chunkPos, Chunk &c) {
 						if (y >= WATER_LEVEL - 1) {
 							c.SetBlockType(topBlock, BlockIndexToPosition(blockIndex));
 						} else {
-							c.SetBlockType(fillerBlock, BlockIndexToPosition(blockIndex));
+							//c.SetBlockType(fillerBlock, BlockIndexToPosition(blockIndex));
 						}
 					} else if (stoneDepth > 0) {
 						--stoneDepth;
-						c.SetBlockType(fillerBlock, BlockIndexToPosition(blockIndex));
+						//c.SetBlockType(fillerBlock, BlockIndexToPosition(blockIndex));
 						if (stoneDepth == 0 && fillerBlock == BLOCK_SAND) {
 							stoneDepth = this->rand.nextInt(4);
 							fillerBlock = BLOCK_SANDSTONE;

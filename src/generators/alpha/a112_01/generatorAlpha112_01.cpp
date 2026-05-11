@@ -48,9 +48,9 @@ Chunk GeneratorAlpha112_01::GenerateChunk(Int2 chunkPos) {
 		ReplaceBlocksForBiome(chunkPos, c);
 		// Carve caves
 		caver.CarveCavesForChunk(seed, chunkPos, c);
+		// Generate heightmap
+		c.GenerateHeightMap();
 	}
-	// Generate heightmap
-	c.GenerateHeightMap();
 	// Try to populate
 	//c.PopulateChunk(chunkPos);
 	c.state = ChunkState::Generated;
@@ -103,7 +103,7 @@ void GeneratorAlpha112_01::ReplaceBlocksForBiome(Int2 chunkPos, Chunk &c) {
 
 				// FIX: Match Java's bedrock roll: nextInt(6) - 1, range [-1, 4]
 				if (y <= 0 + this->rand.nextInt(6) - 1) {
-					c.SetBlockType(BLOCK_BEDROCK, BlockIndexToPosition(blockIndex));
+					//c.SetBlockType(BLOCK_BEDROCK, BlockIndexToPosition(blockIndex));
 					continue;
 				}
 
@@ -145,11 +145,11 @@ void GeneratorAlpha112_01::ReplaceBlocksForBiome(Int2 chunkPos, Chunk &c) {
 						if (y >= WATER_LEVEL - 1) {
 							c.SetBlockType(topBlock, BlockIndexToPosition(blockIndex));
 						} else {
-							c.SetBlockType(fillerBlock, BlockIndexToPosition(blockIndex));
+							//c.SetBlockType(fillerBlock, BlockIndexToPosition(blockIndex));
 						}
 					} else if (stoneDepth > 0) {
 						--stoneDepth;
-						c.SetBlockType(fillerBlock, BlockIndexToPosition(blockIndex));
+						//c.SetBlockType(fillerBlock, BlockIndexToPosition(blockIndex));
 						// FIX: Removed sandstone generation — not present in Java
 					}
 				}

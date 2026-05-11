@@ -144,11 +144,11 @@ Chunk GeneratorInfdev20100327::GenerateChunk(Int2 chunkPos) {
 							if(blockY >= WATER_LEVEL-1) {
 								c.SetBlockType(topBlock, BlockIndexToPosition(blockIndex));
 							} else {
-								c.SetBlockType(fillerBlock, BlockIndexToPosition(blockIndex));
+								//c.SetBlockType(fillerBlock, BlockIndexToPosition(blockIndex));
 							}
 						} else if(depth > 0) {
 							--depth;
-							c.SetBlockType(fillerBlock, BlockIndexToPosition(blockIndex));
+							//c.SetBlockType(fillerBlock, BlockIndexToPosition(blockIndex));
 						}
 					}
 
@@ -158,7 +158,8 @@ Chunk GeneratorInfdev20100327::GenerateChunk(Int2 chunkPos) {
 		}
 	}
 
-	c.GenerateHeightMap();
+	if (!lowDetail)
+		c.GenerateHeightMap();
 	c.state = ChunkState::Generated;
 	return c;
 }

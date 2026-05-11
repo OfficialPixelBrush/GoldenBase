@@ -102,7 +102,8 @@ Chunk GeneratorInfdev20100227::GenerateChunk(Int2 chunkPos) {
 		}
 	}
 	// To prevent population
-	c.GenerateHeightMap();
+	if (!lowDetail)
+		c.GenerateHeightMap();
 	c.state = ChunkState::Generated;
 	return c;
 }
