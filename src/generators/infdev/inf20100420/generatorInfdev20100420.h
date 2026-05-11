@@ -13,8 +13,8 @@ class GeneratorInfdev20100420 : public Generator {
 	NoiseOctaves<NoisePerlin> noiseGen3;
 	NoiseOctaves<NoisePerlin> noiseGen4;
 	NoiseOctaves<NoisePerlin> noiseGen5;
-	NoiseOctaves<NoisePerlin> noiseGen6;
-	NoiseOctaves<NoisePerlin> mobSpawnerNoise;
+	//NoiseOctaves<NoisePerlin> noiseGen6;
+	//NoiseOctaves<NoisePerlin> mobSpawnerNoise;
 	double InitializeNoiseField(double var1, double var3, double var5);
     std::vector<double> noise1;
     std::vector<double> noise2;

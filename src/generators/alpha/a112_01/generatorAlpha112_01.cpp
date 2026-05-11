@@ -43,10 +43,12 @@ Chunk GeneratorAlpha112_01::GenerateChunk(Int2 chunkPos) {
 
 	// Generate the Terrain, minus any caves, as just stone
 	GenerateTerrain(chunkPos, c);
-	// Replace some of the stone with Biome-appropriate blocks
-	ReplaceBlocksForBiome(chunkPos, c);
-	// Carve caves
-	caver.CarveCavesForChunk(seed, chunkPos, c);
+	if (!lowDetail) {
+		// Replace some of the stone with Biome-appropriate blocks
+		ReplaceBlocksForBiome(chunkPos, c);
+		// Carve caves
+		caver.CarveCavesForChunk(seed, chunkPos, c);
+	}
 	// Generate heightmap
 	c.GenerateHeightMap();
 	// Try to populate

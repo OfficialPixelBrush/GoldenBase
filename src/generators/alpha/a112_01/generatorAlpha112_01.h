@@ -21,7 +21,7 @@ class GeneratorAlpha112_01 : public Generator {
 	NoiseOctaves<NoisePerlin> stoneNoiseGen;
 	NoiseOctaves<NoisePerlin> continentalnessNoiseGen;
 	NoiseOctaves<NoisePerlin> depthNoiseGen;
-	NoiseOctaves<NoisePerlin> treeDensityNoiseGen;
+	//NoiseOctaves<NoisePerlin> treeDensityNoiseGen;
 
 	// Stored noise Fields
 	std::vector<double> terrainNoiseField;

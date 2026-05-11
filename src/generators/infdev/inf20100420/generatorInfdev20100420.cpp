@@ -11,15 +11,15 @@ GeneratorInfdev20100420::GeneratorInfdev20100420(int64_t pSeed, float multiplier
 	noiseGen3 = NoiseOctaves<NoisePerlin>(rand, 8 , 8);
 	noiseGen4 = NoiseOctaves<NoisePerlin>(rand, 4 , 4);
 	noiseGen5 = NoiseOctaves<NoisePerlin>(rand, 4 , 4);
-	noiseGen6 = NoiseOctaves<NoisePerlin>(rand, 5 , 5); // Unused
-	mobSpawnerNoise = NoiseOctaves<NoisePerlin>(rand, 5, 5);
+	//noiseGen6 = NoiseOctaves<NoisePerlin>(rand, 5 , 5); // Unused
+	//mobSpawnerNoise = NoiseOctaves<NoisePerlin>(rand, 5, 5);
 }
 
 Chunk GeneratorInfdev20100420::GenerateChunk(Int2 chunkPos) {
 	Chunk c(chunkPos);
 	c.state = ChunkState::Generating;
 	rand.setSeed(int64_t(chunkPos.x) * 341873128712L + int64_t(chunkPos.y) * 132897987541L);
-	c.ClearChunk();
+	//c.ClearChunk();
 
 	int32_t chunkX = chunkPos.x << 2;
 	int32_t chunkZ = chunkPos.y << 2;

@@ -37,7 +37,7 @@ Chunk GeneratorBeta173::GenerateChunk(Int2 chunkPos) {
 	this->rand.setSeed(int64_t(chunkPos.x) * 341873128712L + int64_t(chunkPos.y) * 132897987541L);
 
 	// Allocate empty chunk
-	c.ClearChunk();
+	//c.ClearChunk();
 
 	// Generate Biomes
 	Int2 blockPos = Int2{chunkPos.x*CHUNK_WIDTH, chunkPos.y * CHUNK_WIDTH };
@@ -46,10 +46,12 @@ Chunk GeneratorBeta173::GenerateChunk(Int2 chunkPos) {
 
 	// Generate the Terrain, minus any caves, as just stone
 	GenerateTerrain(chunkPos, c);
-	// Replace some of the stone with Biome-appropriate blocks
-	ReplaceBlocksForBiome(chunkPos, c);
-	// Carve caves
-	caver.CarveCavesForChunk(seed, chunkPos, c);
+	if (!lowDetail) {
+		// Replace some of the stone with Biome-appropriate blocks
+		ReplaceBlocksForBiome(chunkPos, c);
+		// Carve caves
+		caver.CarveCavesForChunk(seed, chunkPos, c);
+	}
 	// Generate heightmap
 	c.GenerateHeightMap();
 	// Try to populate

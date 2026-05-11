@@ -9,15 +9,15 @@ GeneratorInfdev20100327::GeneratorInfdev20100327(int64_t pSeed, float multiplier
 	noiseGen3 = NoiseOctaves<NoisePerlin>(rand, 8 ,8);
 	noiseGen4 = NoiseOctaves<NoisePerlin>(rand, 4 ,4);
 	noiseGen5 = NoiseOctaves<NoisePerlin>(rand, 4 ,4);
-	noiseGen6 = NoiseOctaves<NoisePerlin>(rand, 5 ,5); // Unused
-	mobSpawnerNoise = NoiseOctaves<NoisePerlin>(rand, 5, 5);
+	//noiseGen6 = NoiseOctaves<NoisePerlin>(rand, 5 ,5); // Unused
+	//mobSpawnerNoise = NoiseOctaves<NoisePerlin>(rand, 5, 5);
 }
 
 Chunk GeneratorInfdev20100327::GenerateChunk(Int2 chunkPos) {
 	Chunk c(chunkPos);
 	c.state = ChunkState::Generating;
 	rand.setSeed(int64_t(chunkPos.x) * 341873128712L + int64_t(chunkPos.y) * 132897987541L);
-	c.ClearChunk();
+	//c.ClearChunk();
 
 	// Terrain shape generation
 	for (int32_t macroX = 0; macroX < 4; ++macroX) {
