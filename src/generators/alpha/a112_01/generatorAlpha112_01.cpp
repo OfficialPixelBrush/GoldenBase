@@ -145,11 +145,11 @@ void GeneratorAlpha112_01::ReplaceBlocksForBiome(Int2 chunkPos, Chunk &c) {
 						if (y >= WATER_LEVEL - 1) {
 							c.SetBlockType(topBlock, BlockIndexToPosition(blockIndex));
 						} else {
-							//c.SetBlockType(fillerBlock, BlockIndexToPosition(blockIndex));
+							c.SetBlockType(fillerBlock, BlockIndexToPosition(blockIndex));
 						}
 					} else if (stoneDepth > 0) {
 						--stoneDepth;
-						//c.SetBlockType(fillerBlock, BlockIndexToPosition(blockIndex));
+						c.SetBlockType(fillerBlock, BlockIndexToPosition(blockIndex));
 						// FIX: Removed sandstone generation — not present in Java
 					}
 				}

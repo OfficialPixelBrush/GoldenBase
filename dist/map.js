@@ -111,6 +111,82 @@ function dispatch() {
     }
 }
 
+const GridOverlay = L.GridLayer.extend({
+    initialize: function (options) {
+        L.GridLayer.prototype.initialize.call(this, options);
+
+        this.chunkSize = 16;
+        this.regionSize = 512;
+    },
+
+    createTile: function (coords) {
+        const tile = document.createElement('canvas');
+        const size = this.getTileSize();
+
+        tile.width = size.x;
+        tile.height = size.y;
+
+        const ctx = tile.getContext('2d');
+
+        const zoomScale = this._map.getZoomScale(coords.z, 0);
+
+        const worldX = coords.x * size.x;
+        const worldY = coords.y * size.y;
+
+        // pixel-space grid spacing
+        const chunkPx = this.chunkSize * zoomScale;
+        const regionPx = this.regionSize * zoomScale;
+
+        const showChunkGrid =
+            document.getElementById('check_chunk_grid')?.checked;
+
+        const showRegionGrid =
+            document.getElementById('check_region_grid')?.checked;
+
+        // chunk grid
+        if (showChunkGrid && coords.z > -2) {
+            ctx.strokeStyle = "#ffffff44";
+            ctx.lineWidth = 1;
+
+            ctx.beginPath();
+
+            for (let x = -(worldX % chunkPx); x < size.x; x += chunkPx) {
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, size.y);
+            }
+
+            for (let y = -(worldY % chunkPx); y < size.y; y += chunkPx) {
+                ctx.moveTo(0, y);
+                ctx.lineTo(size.x, y);
+            }
+
+            ctx.stroke();
+        }
+
+        // region grid
+        if (showRegionGrid) {
+            ctx.strokeStyle = "#ffffff99";
+            ctx.lineWidth = 2;
+
+            ctx.beginPath();
+
+            for (let x = -(worldX % regionPx); x < size.x; x += regionPx) {
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, size.y);
+            }
+
+            for (let y = -(worldY % regionPx); y < size.y; y += regionPx) {
+                ctx.moveTo(0, y);
+                ctx.lineTo(size.x, y);
+            }
+
+            ctx.stroke();
+        }
+
+        return tile;
+    }
+});
+
 let mapCenter = { x: 0, y: 0 };
 
 window.addEventListener('load', () => {
@@ -129,6 +205,11 @@ window.addEventListener('load', () => {
                 noWrap: true,
                 keepBuffer: 10   // default is 2
             });
+            map.createPane('gridPane');
+            map.getPane('gridPane').style.zIndex = 700;
+
+            map.createPane('tilePane');
+            map.getPane('tilePane').style.zIndex = 400;
             const Grid = L.GridLayer.extend({
                 createTile: function(coords) {
                     const tile = L.DomUtil.create('canvas', 'leaflet-tile');
@@ -183,6 +264,8 @@ window.addEventListener('load', () => {
                     <tr>
                         <td>
                             <code id="coords"></code>
+                            </br>
+                            <code id="bigCoords"></code>
                         </td>
                         <td>
                             <input type="number" id="xPos" placeholder="x" value="0" style="width: 20%">
@@ -231,6 +314,10 @@ window.addEventListener('load', () => {
                                 <label for="check_blockcolors">Block colors</label><br>
                                 <input type="checkbox" id="check_water" name="check_water" value="Show Water" checked="true">
                                 <label for="check_water">Show Water</label><br>
+                                <input type="checkbox" id="check_chunk_grid" name="check_chunk_grid" value="Show Chunk Grid" checked="true">
+                                <label for="check_chunk_grid">Show Chunk Grid</label><br>
+                                <input type="checkbox" id="check_region_grid" name="check_region_grid" value="Show Region Grid" checked="true">
+                                <label for="check_region_grid">Show Region Grid</label><br>
                             </details>
                         </td>
                         <td style="vertical-align: top;">
@@ -250,6 +337,10 @@ window.addEventListener('load', () => {
             // Prevent clicks from propagating to the map
             L.DomEvent.disableClickPropagation(infoControl.getContainer());
 
+            function cleanZero(n) {
+                return Math.abs(n) < 1e-9 ? 0 : n;
+            }
+
             function updateCenter() {
                 const center = map.getCenter();
                 const point = map.project(center, tileZoom);
@@ -258,7 +349,10 @@ window.addEventListener('load', () => {
                 
                 mapCenter.y = point.y / scale;
 
-                document.getElementById('coords').textContent = `Center: ${(mapCenter.x*16*4).toFixed(2)}, ${(mapCenter.y*16*4).toFixed(2)}`;
+                const blockPosX = mapCenter.x*16*4;
+                const blockPosZ = mapCenter.y*16*4;
+                document.getElementById('coords').textContent = `Center: ${(blockPosX).toFixed(2)}, ${(blockPosZ).toFixed(2)}`;
+                document.getElementById('bigCoords').textContent = `Cnk: ${((blockPosX/16)-0.5).toFixed(0)}, ${((blockPosZ/16)-0.5).toFixed(0)} / Rgn: ${((blockPosX/512)-0.5).toFixed(0)}, ${((blockPosZ/512)-0.5).toFixed(0)}`;
             }
 
             window.setPosition = function() {
@@ -296,7 +390,11 @@ window.addEventListener('load', () => {
             function regenTiles() {
                 // regenerate currently visible tiles
                 map.eachLayer(layer => {
-                    if (layer instanceof L.GridLayer && layer._tiles) {
+                    if (
+                        layer instanceof L.GridLayer &&
+                        layer._tiles &&
+                        layer.options.pane === "tilePane"
+                    ) {
                         Object.values(layer._tiles).forEach(tileObj => {
                             const coords = tileObj.coords;
                             // remove old tile promise to force regeneration
@@ -358,30 +456,56 @@ window.addEventListener('load', () => {
             });
 
             // Add the graticule to your map
-            /*
-            L.latlngGraticule({
-                showLabel: false,
-                color: "#fff3",
-                weight: 1,
-                zoomInterval: [{start: 0, end: 3, interval: 16}],
-                redraw: false,
-                latlngBounds: [[-1e7, -1e7], [1e7, 1e7]] // full world
+            const gridOverlay = new GridOverlay({
+                pane: 'gridPane',
+                tileSize: scale,
+                scale: 1,
+                minZoom: -4,
+                maxZoom: 3,
+                noWrap: true
             }).addTo(map);
+            const crossH = L.DomUtil.create('div', '', document.body);
+            const crossV = L.DomUtil.create('div', '', document.body);
+            
+            
+            function refreshGridOverlay() {
+                gridOverlay.redraw();
+            }
+            
+            document
+                .getElementById('check_chunk_grid')
+                .addEventListener('change', refreshGridOverlay);
 
-            // Add the graticule to your map
-            L.latlngGraticule({
-                showLabel: true,
-                color: "#fff8",
-                weight: 1,
-                zoomInterval: [{start: 0, end: 3, interval: 256}],
-                redraw: false,
-                latlngBounds: [[-1e7, -1e7], [1e7, 1e7]] // full world
-            }).addTo(map);
-            */
+            document
+                .getElementById('check_region_grid')
+                .addEventListener('change', refreshGridOverlay);
+
+            Object.assign(crossH.style, {
+                position: 'absolute',
+                top: '50%',
+                left: 0,
+                width: '100%',
+                height: '1px',
+                background: '#ffffff55',
+                pointerEvents: 'none',
+                zIndex: 9999
+            });
+
+            Object.assign(crossV.style, {
+                position: 'absolute',
+                left: '50%',
+                top: 0,
+                width: '1px',
+                height: '100%',
+                background: '#ffffff55',
+                pointerEvents: 'none',
+                zIndex: 9999
+            });
 
             initWorkers('GoldenBase.js', () => {
                 console.log('All workers ready');
                 new DynamicLayer({
+                    pane: 'tilePane',
                     tileSize: scale,
                     minZoom: -4,  // matches map minZoom and MAX_ZOOM_OUT in main.cpp
                     maxZoom: 3,

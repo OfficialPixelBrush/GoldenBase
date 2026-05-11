@@ -152,11 +152,11 @@ void GeneratorBeta173::ReplaceBlocksForBiome(Int2 chunkPos, Chunk &c) {
 						if (y >= WATER_LEVEL - 1) {
 							c.SetBlockType(topBlock, BlockIndexToPosition(blockIndex));
 						} else {
-							//c.SetBlockType(fillerBlock, BlockIndexToPosition(blockIndex));
+							c.SetBlockType(fillerBlock, BlockIndexToPosition(blockIndex));
 						}
 					} else if (stoneDepth > 0) {
 						--stoneDepth;
-						//c.SetBlockType(fillerBlock, BlockIndexToPosition(blockIndex));
+						c.SetBlockType(fillerBlock, BlockIndexToPosition(blockIndex));
 						if (stoneDepth == 0 && fillerBlock == BLOCK_SAND) {
 							stoneDepth = this->rand.nextInt(4);
 							fillerBlock = BLOCK_SANDSTONE;

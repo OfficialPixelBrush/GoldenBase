@@ -203,11 +203,11 @@ Chunk GeneratorInfdev20100611::GenerateChunk(Int2 chunkPos) {
 						if (blockY >= WATER_LEVEL - 1) {
 							c.SetBlockType(topBlock, BlockIndexToPosition(blockIndex));
 						} else {
-							//c.SetBlockType(fillerBlock, BlockIndexToPosition(blockIndex));
+							c.SetBlockType(fillerBlock, BlockIndexToPosition(blockIndex));
 						}
 					} else if (depth > 0) {
 						--depth;
-						//c.SetBlockType(fillerBlock, BlockIndexToPosition(blockIndex));
+						c.SetBlockType(fillerBlock, BlockIndexToPosition(blockIndex));
 					}
 				}
 
