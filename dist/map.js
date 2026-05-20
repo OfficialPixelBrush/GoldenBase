@@ -84,6 +84,8 @@ function getOptions() {
     if (document.getElementById('check_heightmap').checked) opt_value |= 1 << 0;
     if (document.getElementById('check_blockcolors').checked) opt_value |= 1 << 1;
     if (document.getElementById('check_water').checked) opt_value |= 1 << 2;
+    if (document.getElementById('check_snow_mode').checked) opt_value |= 1 << 3;
+    if (document.getElementById('check_snow_world').checked) opt_value |= 1 << 4;
     return opt_value;
 }
 
@@ -279,17 +281,23 @@ window.addEventListener('load', () => {
                         </td>
                         <td>
                             <select id="genSelection">
-                                <option value="3">b1.3.0 - b1.7.3</option>
-                                <option value="5">a1.2.0 - b1.2.0_02</option>
-                                <option value="4">inf-20100624 - a1.1.2_01</option>
-                                <option value="9">inf-20100616 - inf-20100618</option>
-                                <option value="8">inf-20100611 - inf-20100615</option>
-                                <option value="7">inf-20100420 - inf-20100608</option>
-                                <option value="6">inf-20100413 - inf-20100415</option>
+                                <option value="9">b1.3.0 - b1.7.3</option>
+                                <option value="8">a1.2.0 - b1.2.0_02</option>
+                                <option value="7">inf-20100624 - a1.1.2_01</option>
+                                <option value="6">inf-20100616 - inf-20100618</option>
+                                <option value="5">inf-20100611 - inf-20100615</option>
+                                <option value="4">inf-20100420 - inf-20100608</option>
+                                <option value="3">inf-20100413 - inf-20100415</option>
                                 <option value="2">inf-20100327 - inf-20100330</option>
                                 <option value="1">inf-20100227 - inf-20100325</option>
                             </select>
                         </td>
+                    </tr>
+                    <tr id="snowWorldRow">
+                        <td>
+                            <input type="checkbox" id="check_snow_world" name="check_snow_world">
+                            <label for="check_snow_world">Snow World<br>
+                        <td>
                     </tr>
                     <tr>
                         <td>
@@ -308,15 +316,17 @@ window.addEventListener('load', () => {
                         <td style="vertical-align: top;">
                             <details>
                                 <summary>Visualizer Settings</summary>
-                                <input type="checkbox" id="check_heightmap" name="check_heightmap" value="Heightmap" checked="true">
+                                <input type="checkbox" id="check_heightmap" name="check_heightmap" checked="true">
                                 <label for="check_heightmap">Heightmap</label><br>
-                                <input type="checkbox" id="check_blockcolors" name="check_blockcolors" value="Block colors" checked="true">
+                                <input type="checkbox" id="check_blockcolors" name="check_blockcolors" checked="true">
                                 <label for="check_blockcolors">Block colors</label><br>
-                                <input type="checkbox" id="check_water" name="check_water" value="Show Water" checked="true">
+                                <input type="checkbox" id="check_water" name="check_water" checked="true">
                                 <label for="check_water">Show Water</label><br>
-                                <input type="checkbox" id="check_chunk_grid" name="check_chunk_grid" value="Show Chunk Grid" checked="true">
+                                <input type="checkbox" id="check_snow_mode" name="check_snow_mode" checked="true">
+                                <label for="check_snow_mode">Show surface snow<br>
+                                <input type="checkbox" id="check_chunk_grid" name="check_chunk_grid" checked="true">
                                 <label for="check_chunk_grid">Show Chunk Grid</label><br>
-                                <input type="checkbox" id="check_region_grid" name="check_region_grid" value="Show Region Grid" checked="true">
+                                <input type="checkbox" id="check_region_grid" name="check_region_grid" checked="true">
                                 <label for="check_region_grid">Show Region Grid</label><br>
                             </details>
                         </td>
@@ -333,6 +343,20 @@ window.addEventListener('load', () => {
             };
             infoControl.addTo(map);
             createBiomeSwatch('biomeSwatches');
+
+            function checkIfSnowWorld(genId) {
+                if (genId == 7) {
+                    snowWorldRow.style.display = "";
+                    return;
+                }
+                snowWorldRow.style.display = "none";
+            }
+            checkIfSnowWorld(9);
+            document
+                .getElementById('genSelection')
+                .addEventListener('change', (e) => {
+                    checkIfSnowWorld(Number(e.target.value));
+                });
 
             // Prevent clicks from propagating to the map
             L.DomEvent.disableClickPropagation(infoControl.getContainer());
@@ -415,6 +439,8 @@ window.addEventListener('load', () => {
                 cancelAllTiles();
                 const genId = Number(document.getElementById('genSelection').value);
                 const seed = document.getElementById('seedValue').value.trim();
+
+                checkIfSnowWorld(genId);
 
                 // notify workers
                 workers.forEach(w => {

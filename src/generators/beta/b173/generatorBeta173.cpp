@@ -51,6 +51,8 @@ Chunk GeneratorBeta173::GenerateChunk(Int2 chunkPos) {
 		ReplaceBlocksForBiome(chunkPos, c);
 		// Carve caves
 		caver.CarveCavesForChunk(seed, chunkPos, c);
+		if (snowMode)
+			PseudoPopulateChunk(chunkPos, c);
 		// Generate heightmap
 		c.GenerateHeightMap();
 	}
@@ -59,6 +61,24 @@ Chunk GeneratorBeta173::GenerateChunk(Int2 chunkPos) {
 	c.state = ChunkState::Generated;
 	return c;
 }
+
+bool GeneratorBeta173::PseudoPopulateChunk(Int2 chunkPos, Chunk &c) {
+	//Beta173Biome(seed).GenerateTemperature(temperature,weirdness,Int2{blockPos.x + 8, blockPos.y + 8}, Int2{CHUNK_WIDTH, CHUNK_WIDTH});
+	for (int32_t x = 0; x < CHUNK_WIDTH; ++x) {
+		for (int32_t z = 0; z < CHUNK_WIDTH; ++z) {
+			int32_t highestBlock = c.GetHighestSolidOrLiquidBlock(Int2{x, z});
+			double temp = this->temperature[x * CHUNK_WIDTH + z] - double(highestBlock - 64) / 64.0 * 0.3;
+			if (temp < 0.5 && highestBlock > 0 && highestBlock < CHUNK_HEIGHT &&
+				c.GetBlockType(Int3{x, highestBlock, z}) == BLOCK_AIR &&
+				IsSolid(c.GetBlockType(Int3{x, highestBlock - 1, z})) &&
+				c.GetBlockType(Int3{x, highestBlock - 1, z}) != BLOCK_ICE
+			) {
+				c.SetBlockType(BLOCK_SNOW_LAYER, Int3{x, highestBlock, z});
+			}
+		}
+	}
+	return true;
+};
 
 /**
  * @brief Replace some of the stone with Biome-appropriate blocks

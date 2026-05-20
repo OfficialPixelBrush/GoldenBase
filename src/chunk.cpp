@@ -20,13 +20,25 @@ void Chunk::SetBiomes(std::vector<Biome> biomes) {
 int8_t Chunk::GetHeightValue(uint8_t x, uint8_t z) { return this->heightMap[(z & 15) << 4 | (x & 15)]; }
 void Chunk::SetHeightValue(uint8_t x, uint8_t z, int8_t h) { this->heightMap[(z & 15) << 4 | (x & 15)] = this->heightMap[(z & 15) << 4 | (x & 15)] == 0 ? this->heightMap[(z & 15) << 4 | (x & 15)] : h; }
 
+int32_t Chunk::GetHighestSolidOrLiquidBlock(Int2 pos) {
+	for (int32_t y = CHUNK_HEIGHT - 1; y > 0; --y) {
+		BlockType blockType = this->GetBlockType(Int3{pos.x, y, pos.y});
+		if (blockType == BLOCK_AIR)
+			continue;
+		if (IsSolid(blockType) || IsLiquid(blockType)) {
+			return y + 1;
+		}
+	}
+	return -1;
+}
+
 void Chunk::GenerateHeightMap() {
-	/*
     for (int8_t x = 0; x < CHUNK_WIDTH; ++x) {
         for (int8_t z = 0; z < CHUNK_WIDTH; ++z) {
 			// Note: While doing the water fast-path is more efficient
 			// It does result in us skipping any and all overhangs,
 			// reducing accuracy on some seeds AND the farlands
+			/*
 			for (int8_t y = CHUNK_HEIGHT - 1; y >= 0; --y) {
 				if (IsOpaque(blockTypeArray[PositionToBlockIndex(Int3{x,y-1,z})])) {
 					heightMap[(z << 4) | x] = (int8_t)y;
@@ -42,17 +54,18 @@ void Chunk::GenerateHeightMap() {
 						break;
 					}
 				}
-			} else {
+			} else {*/
 				// Fallback to normal heightmap gen
 				for (int8_t y = CHUNK_HEIGHT - 1; y >= 0; --y) {
-					if (IsOpaque(blockTypeArray[PositionToBlockIndex(Int3{x,y-1,z})])) {
+					BlockType type = blockTypeArray[PositionToBlockIndex(Int3{x,y-1,z})];
+					if (IsOpaque(type) || type == BLOCK_SNOW_LAYER) {
 						heightMap[(z << 4) | x] = (int8_t)y;
 						break;
 					}
 				}
-			}
+			//}
         }
-    }*/
+    }
 }
 
 void Chunk::ClearChunk() {

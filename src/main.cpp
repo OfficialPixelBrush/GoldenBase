@@ -106,20 +106,22 @@ Int3 GetBlockColor(int block_id, Int3 biomeColor) {
         case BLOCK_DIAMOND:         return HexToInt3(0x00bdb3);
         case BLOCK_ICE:             return HexToInt3(0x77a9ff);
         case BLOCK_CLAY:            return HexToInt3(0xa0a7b2);
+        case BLOCK_SNOW:            return HexToInt3(0xffffff);
+        case BLOCK_SNOW_LAYER:      return HexToInt3(0xffffff);
     }
 }
 
 enum genSelect {
-    GEN_INVALID = 0,
-    GEN_BETA_BETA173 = 3,           // Beta 1.3.0   - Beta 1.7.3
-    GEN_ALPHA_ALPHA120 = 5,         // Alpha 1.2.0  - Beta 1.2.0_02
-    GEN_ALPHA_ALPHA112_01 = 4,      // Inf-20100624 - Alpha 1.1.2_01
-    GEN_INFDEV_INFDEV20100616 = 9,  // Inf-20100616 - Inf-20100618
-    GEN_INFDEV_INFDEV20100611 = 8,  // Inf-20100611 - Inf-20100615
-    GEN_INFDEV_INFDEV20100420 = 7,  // Inf-20100420 - Inf-20100608
-    GEN_INFDEV_INFDEV20100413 = 6,  // Inf-20100413 - Inf-20100415
-    GEN_INFDEV_INFDEV20100327 = 2,  // Inf-20100327 - Inf-20100330
-    GEN_INFDEV_INFDEV20100227 = 1,  // Inf-20100227 - Inf-20100325
+    GEN_BETA_BETA173            = 9, // Beta 1.3.0   - Beta 1.7.3
+    GEN_ALPHA_ALPHA120          = 8, // Alpha 1.2.0  - Beta 1.2.0_02
+    GEN_ALPHA_ALPHA112_01       = 7, // Inf-20100624 - Alpha 1.1.2_01
+    GEN_INFDEV_INFDEV20100616   = 6, // Inf-20100616 - Inf-20100618
+    GEN_INFDEV_INFDEV20100611   = 5, // Inf-20100611 - Inf-20100615
+    GEN_INFDEV_INFDEV20100420   = 4, // Inf-20100420 - Inf-20100608
+    GEN_INFDEV_INFDEV20100413   = 3, // Inf-20100413 - Inf-20100415
+    GEN_INFDEV_INFDEV20100327   = 2, // Inf-20100327 - Inf-20100330
+    GEN_INFDEV_INFDEV20100227   = 1, // Inf-20100227 - Inf-20100325
+    GEN_INVALID                 = 0,
 };
 
 extern "C" {
@@ -196,8 +198,8 @@ extern "C" {
         1   -> Heightmap, if the color should be multiplied by the height (darker at low y, brighter at high y)
         2   -> Block Colors, if not set, biome colors are used for everything
         4   -> Show Water, if water should be rendered
-        8   -> x
-        16  -> x
+        8   -> Snow Mode, snow should be rendered
+        16  -> Snow World, if world is snow world
         32  -> x
         64  -> x
         128 -> x
@@ -207,9 +209,11 @@ extern "C" {
 
     EMSCRIPTEN_KEEPALIVE
     uint8_t* getTile(int x, int z, int zoomLevel, int32_t options) {
-        bool heightmap      = (options & 1) > 0;
-        bool blockColors    = (options & 2) > 0;
-        bool showWater      = (options & 4) > 0;
+        bool heightmap      = (options &  1) > 0;
+        bool blockColors    = (options &  2) > 0;
+        bool showWater      = (options &  4) > 0;
+        bool snowMode       = (options &  8) > 0;
+        bool snowWorld      = (options & 16) > 0;
 
         // ── Zoom-level semantics ──────────────────────────────────────────────
         // zoomLevel > 0  : zoomed IN  — fewer chunks, each block drawn at scale×scale pixels
@@ -256,6 +260,10 @@ extern "C" {
                 gen = generatorPtr;
             }
         }
+        gen->snowMode = snowMode;
+        // Only set snow world for specific generator
+        if (auto* alphaGen = dynamic_cast<GeneratorAlpha112_01*>(gen))
+            alphaGen->snowCovered = snowWorld;
 
         for (int bx = 0; bx < batchSize; bx++) {
             for (int bz = 0; bz < batchSize; bz++) {
