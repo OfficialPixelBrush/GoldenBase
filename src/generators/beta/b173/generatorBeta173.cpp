@@ -166,14 +166,8 @@ void GeneratorBeta173::ReplaceBlocksForBiome(Int2 chunkPos, Chunk &c) {
 							topBlock = GetTopBlock(biome);
 							fillerBlock = GetFillerBlock(biome);
 
-							if (gravelActive)
-								topBlock = BLOCK_AIR;
-							if (gravelActive)
-								fillerBlock = BLOCK_GRAVEL;
-							if (sandActive)
-								topBlock = BLOCK_SAND;
-							if (sandActive)
-								fillerBlock = BLOCK_SAND;
+							if (gravelActive) { topBlock = BLOCK_AIR; fillerBlock = BLOCK_GRAVEL; }
+							if (sandActive) { topBlock = BLOCK_SAND; fillerBlock = BLOCK_SAND; }
 						}
 
 						// Add water if we're below water level

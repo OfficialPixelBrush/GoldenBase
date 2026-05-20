@@ -247,9 +247,10 @@ window.addEventListener('load', () => {
             const infoControl = L.control({ position: 'topright' });
 
             infoControl.onAdd = function (map) {
-                const div = L.DomUtil.create('div', 'custom-control');
-                div.innerHTML = `
-                    <table style="width: 300pt; table-layout: fixed;">
+            const div = L.DomUtil.create('div', 'custom-control');
+
+            div.innerHTML = `
+                <table style="width: 300pt; table-layout: fixed;">
                     <tr>
                         <td style="text-align: center;" colspan="2">
                             <p style="margin:0;"><b>GoldenBase</b></p>
@@ -258,94 +259,119 @@ window.addEventListener('load', () => {
                     </tr>
                     <tr>
                         <td style="text-align: center;">
-                            <p style="margin:0;">Made by <a style="color: lightblue" href="https://pixelbrush.dev/about">Pixel Brush</a></p>
+                            <p style="margin:0;">
+                                Made by <a style="color: lightblue" href="https://pixelbrush.dev/about">Pixel Brush</a>
+                            </p>
                         </td>
                         <td style="text-align: center;">
-                            <p style="margin:0;"><a style="color: lightblue" href="https://github.com/OfficialPixelBrush/GoldenBase">Github Repository</a></p>
+                            <p style="margin:0;">
+                                <a style="color: lightblue" href="https://github.com/OfficialPixelBrush/GoldenBase">
+                                    Github Repository
+                                </a>
+                            </p>
                         </td>
                     </tr>
-                    <tr>
-                        <td>
-                            <code id="coords"></code>
-                            </br>
-                            <code id="bigCoords"></code>
-                        </td>
-                        <td>
-                            <input type="number" id="xPos" placeholder="x" value="0" style="width: 20%">
-                            <input type="number" id="zPos" placeholder="z" value="0" style="width: 20%">
-                            <button onclick="setPosition()">Go</button>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td>
-                            <label>Generator</label>
-                        </td>
-                        <td>
-                            <select id="genSelection">
-                                <option value="9">b1.3.0 - b1.7.3</option>
-                                <option value="8">a1.2.0 - b1.2.0_02</option>
-                                <option value="7">inf-20100624 - a1.1.2_01</option>
-                                <option value="6">inf-20100616 - inf-20100618</option>
-                                <option value="5">inf-20100611 - inf-20100615</option>
-                                <option value="4">inf-20100420 - inf-20100608</option>
-                                <option value="3">inf-20100413 - inf-20100415</option>
-                                <option value="2">inf-20100327 - inf-20100330</option>
-                                <option value="1">inf-20100227 - inf-20100325</option>
-                            </select>
-                        </td>
-                    </tr>
-                    <tr id="snowWorldRow">
-                        <td>
-                            <input type="checkbox" id="check_snow_world" name="check_snow_world">
-                            <label for="check_snow_world">Snow World<br>
-                        <td>
-                    </tr>
-                    <tr>
-                        <td>
-                            <label>Seed</label>
-                        </td>
-                        <td>
-                            <input id="seedValue" value="3257840388504953787">
-                        </td>
-                    </tr>
-                    <tr>
-                        <td colspan="2">
-                            <button id="updateGen" style="width:100%">Update Gen</button>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style="vertical-align: top;">
-                            <details>
-                                <summary>Visualizer Settings</summary>
-                                <input type="checkbox" id="check_heightmap" name="check_heightmap" checked="true">
-                                <label for="check_heightmap">Heightmap</label><br>
-                                <input type="checkbox" id="check_blockcolors" name="check_blockcolors" checked="true">
-                                <label for="check_blockcolors">Block colors</label><br>
-                                <br>
-                                <input type="checkbox" id="check_water" name="check_water" checked="true">
-                                <label for="check_water">Show Water</label><br>
-                                <input type="checkbox" id="check_snow_mode" name="check_snow_mode" checked="true">
-                                <label for="check_snow_mode">Show surface snow<br>
-                                <input type="checkbox" id="check_temp_humi_colors" name="check_temp_humi_colors">
-                                <label for="check_temp_humi_colors">Accurate Grass Colors<br>
-                                <br>
-                                <input type="checkbox" id="check_chunk_grid" name="check_chunk_grid">
-                                <label for="check_chunk_grid">Show Chunk Grid</label><br>
-                                <input type="checkbox" id="check_region_grid" name="check_region_grid" checked="true">
-                                <label for="check_region_grid">Show Region Grid</label><br>
-                            </details>
-                        </td>
-                        <td style="vertical-align: top;">
-                            <details>
-                                <summary>Biome Colors (a1.2.0+)</summary>
-                                <div id="biomeSwatches"></div>
-                            </details>
-                        </td>
-                    </tr>
+                </table>
+                <details open="true">
+                    <summary style="cursor:pointer;">Controls / Configuration</summary>
+
+                    <table style="width: 300pt; table-layout: fixed;">
+
+                        <tr>
+                            <td>
+                                <code id="coords"></code><br/>
+                                <code id="bigCoords"></code>
+                            </td>
+                            <td>
+                                <input type="number" id="xPos" placeholder="x" value="0" style="width: 20%">
+                                <input type="number" id="zPos" placeholder="z" value="0" style="width: 20%">
+                                <button onclick="setPosition()">Go</button>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td>
+                                <label>Generator</label>
+                            </td>
+                            <td>
+                                <select id="genSelection">
+                                    <option value="9">b1.3.0 - b1.7.3</option>
+                                    <option value="8">a1.2.0 - b1.2.0_02</option>
+                                    <option value="7">inf-20100624 - a1.1.2_01</option>
+                                    <option value="6">inf-20100616 - inf-20100618</option>
+                                    <option value="5">inf-20100611 - inf-20100615</option>
+                                    <option value="4">inf-20100420 - inf-20100608</option>
+                                    <option value="3">inf-20100413 - inf-20100415</option>
+                                    <option value="2">inf-20100327 - inf-20100330</option>
+                                    <option value="1">inf-20100227 - inf-20100325</option>
+                                </select>
+                            </td>
+                        </tr>
+
+                        <tr id="snowWorldRow">
+                            <td>
+                                <input type="checkbox" id="check_snow_world" name="check_snow_world">
+                                <label for="check_snow_world">Snow World</label>
+                            </td>
+                            <td></td>
+                        </tr>
+
+                        <tr>
+                            <td>
+                                <label>Seed</label>
+                            </td>
+                            <td>
+                                <input id="seedValue" value="3257840388504953787">
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td colspan="2">
+                                <button id="updateGen" style="width:100%">Update Gen</button>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td style="vertical-align: top;">
+                                <details>
+                                    <summary>Visualizer Settings</summary>
+                                    <input type="checkbox" id="check_heightmap" checked>
+                                    <label for="check_heightmap">Heightmap</label><br>
+
+                                    <input type="checkbox" id="check_blockcolors" checked>
+                                    <label for="check_blockcolors">Block colors</label><br><br>
+
+                                    <input type="checkbox" id="check_water" checked>
+                                    <label for="check_water">Show Water</label><br>
+
+                                    <input type="checkbox" id="check_snow_mode" checked>
+                                    <label for="check_snow_mode">Show surface snow</label><br>
+
+                                    <input type="checkbox" id="check_temp_humi_colors">
+                                    <label for="check_temp_humi_colors">Accurate Grass Colors</label><br><br>
+
+                                    <input type="checkbox" id="check_chunk_grid">
+                                    <label for="check_chunk_grid">Show Chunk Grid</label><br>
+
+                                    <input type="checkbox" id="check_region_grid" checked>
+                                    <label for="check_region_grid">Show Region Grid</label><br>
+                                </details>
+                            </td>
+
+                            <td style="vertical-align: top;">
+                                <details>
+                                    <summary>Biome Colors (a1.2.0+)</summary>
+                                    <div id="biomeSwatches"></div>
+                                </details>
+                            </td>
+                        </tr>
+
                     </table>
-                `;
-                return div;
-            };
+                </details>
+            `;
+
+            return div;
+        };
             infoControl.addTo(map);
             createBiomeSwatch('biomeSwatches');
 

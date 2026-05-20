@@ -34,3 +34,6 @@
 GoldenBase.js
 GoldenBase.wasm
 /.cache
+*.zip
+*.rar
+*.tar.*

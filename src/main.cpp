@@ -266,9 +266,7 @@ extern "C" {
         if (auto* alphaGen = dynamic_cast<GeneratorAlpha112_01*>(gen))
             alphaGen->snowCovered = snowWorld;
         // Is beta generator, and thus can have darker grass
-        bool darkerGrass = false;
-        if (auto* betaGen = dynamic_cast<GeneratorBeta173*>(gen))
-            darkerGrass = true;
+        bool darkerGrass = dynamic_cast<GeneratorBeta173*>(gen) != nullptr;
 
         for (int bx = 0; bx < batchSize; bx++) {
             for (int bz = 0; bz < batchSize; bz++) {
