@@ -41,6 +41,7 @@ class GeneratorAlpha112_01 : public Generator {
 	void GenerateTerrain(Int2 chunkPos, Chunk &c);
 	void GenerateTerrainNoise(std::vector<double> &terrainMap, Int3 chunkPos, Int3 max);
 	void ReplaceBlocksForBiome(Int2 chunkPos, Chunk &c);
+	bool PseudoPopulateChunk(Int2 chunkPos, Chunk &c);
 
   public:
 	GeneratorAlpha112_01(int64_t seed, float multiplier);

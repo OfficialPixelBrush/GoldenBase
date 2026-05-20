@@ -48,6 +48,8 @@ Chunk GeneratorAlpha112_01::GenerateChunk(Int2 chunkPos) {
 		ReplaceBlocksForBiome(chunkPos, c);
 		// Carve caves
 		caver.CarveCavesForChunk(seed, chunkPos, c);
+		if (snowMode && snowCovered)
+			PseudoPopulateChunk(chunkPos, c);
 		// Generate heightmap
 		c.GenerateHeightMap();
 	}
@@ -56,6 +58,22 @@ Chunk GeneratorAlpha112_01::GenerateChunk(Int2 chunkPos) {
 	c.state = ChunkState::Generated;
 	return c;
 }
+
+bool GeneratorAlpha112_01::PseudoPopulateChunk(Int2 chunkPos, Chunk &c) {
+	for (int32_t x = 0; x < CHUNK_WIDTH; ++x) {
+		for (int32_t z = 0; z < CHUNK_WIDTH; ++z) {
+			int32_t highestBlock = c.GetHighestSolidOrLiquidBlock(Int2{x, z});
+			if (highestBlock > 0 && highestBlock < CHUNK_HEIGHT &&
+				c.GetBlockType(Int3{x, highestBlock, z}) == BLOCK_AIR &&
+				IsSolid(c.GetBlockType(Int3{x, highestBlock - 1, z})) &&
+				c.GetBlockType(Int3{x, highestBlock - 1, z}) != BLOCK_ICE
+			) {
+				c.SetBlockType(BLOCK_SNOW_LAYER, Int3{x, highestBlock, z});
+			}
+		}
+	}
+	return true;
+};
 
 /**
  * @brief Replace some of the stone with Biome-appropriate blocks.
@@ -217,7 +235,7 @@ void GeneratorAlpha112_01::GenerateTerrain(Int2 chunkPos, Chunk &c) {
 							// FIX: Match Java — use worldObj.snowCovered flag for ice,
 							//      not a per-column temperature check.
 							if (yLevel < WATER_LEVEL) {
-								if (this->snowCovered && yLevel >= WATER_LEVEL - 1) {
+								if (snowCovered && yLevel >= WATER_LEVEL - 1) {
 									blockType = BLOCK_ICE;
 								} else {
 									blockType = BLOCK_WATER_STILL;
