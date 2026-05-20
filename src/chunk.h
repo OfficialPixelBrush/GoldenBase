@@ -28,6 +28,8 @@ class Chunk {
 	BlockType blockTypeArray[(CHUNK_WIDTH * CHUNK_WIDTH * CHUNK_HEIGHT)];
 
   public:
+	float temperature[CHUNK_WIDTH * CHUNK_WIDTH];
+	float humidity[CHUNK_WIDTH * CHUNK_WIDTH];
 	int8_t state = ChunkState::Invalid;
 
 	Chunk(Int2 pos) : xPos(pos.x), zPos(pos.y) {
@@ -46,6 +48,7 @@ class Chunk {
 	Biome GetBiome(int32_t x, int32_t z);
 	Biome SetBiome(Biome biome, int32_t x, int32_t z);
 	void SetBiomes(std::vector<Biome> biomes);
+	Int3 GetGrassColor(int32_t x, int32_t z);
 
 	void SetBlockType(BlockType type, Int3 pos);
 	BlockType GetBlockType(Int3 pos);

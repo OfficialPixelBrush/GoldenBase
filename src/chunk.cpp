@@ -1,5 +1,6 @@
 #include "chunk.h"
 #include "helpers/datatypes.h"
+#include <cstdint>
 #include <iostream>
 
 Biome Chunk::GetBiome(int32_t x, int32_t z) {
@@ -66,6 +67,21 @@ void Chunk::GenerateHeightMap() {
 			//}
         }
     }
+}
+
+#include "helpers/grassColorBuffer.h"
+Int3 Chunk::GetGrassColor(int32_t x, int32_t z) {
+	float humi = humidity[x + CHUNK_WIDTH * z];
+	float temp = temperature[x + CHUNK_WIDTH * z];
+	humi *= temp;
+	int ti = int((1.0f - temp) * 255.0f);
+	int hi = int((1.0f - humi) * 255.0f);
+	int lutRes = grassColorLut[hi << 8 | ti];
+	return Int3{
+		(lutRes >> 16) & 0xFF,
+		(lutRes >>  8) & 0xFF,
+		(lutRes      ) & 0xFF,
+	};
 }
 
 void Chunk::ClearChunk() {

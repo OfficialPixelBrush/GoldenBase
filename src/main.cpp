@@ -71,7 +71,7 @@ Int3 HexToInt3(int32_t value) {
     };
 }
 
-Int3 GetBlockColor(int block_id, Int3 biomeColor) {
+Int3 GetBlockColor(int block_id, Int3 biomeColor, bool darkerGrass) {
     switch(block_id) {
         default:
             return Int3{255, 0, 255};
@@ -83,7 +83,7 @@ Int3 GetBlockColor(int block_id, Int3 biomeColor) {
         case BLOCK_ORE_COAL:
         case BLOCK_ORE_LAPIS_LAZULI:
         case BLOCK_STONE:           return HexToInt3(0x7f7f7f);
-        case BLOCK_GRASS:           return biomeColor;
+        case BLOCK_GRASS:           return darkerGrass ? MultiplyColor(biomeColor, HexToInt3(0x929292)) : biomeColor;
         case BLOCK_DIRT:            return HexToInt3(0x79553a);
         case BLOCK_COBBLESTONE:     return HexToInt3(0x898989);
         case BLOCK_PLANKS:          return HexToInt3(0xbc9862);
@@ -200,7 +200,7 @@ extern "C" {
         4   -> Show Water, if water should be rendered
         8   -> Snow Mode, snow should be rendered
         16  -> Snow World, if world is snow world
-        32  -> x
+        32  -> Accurate Grass Colors, that match Beta Minecraft
         64  -> x
         128 -> x
         256 -> x
@@ -214,6 +214,7 @@ extern "C" {
         bool showWater      = (options &  4) > 0;
         bool snowMode       = (options &  8) > 0;
         bool snowWorld      = (options & 16) > 0;
+        bool tempHumiColor  = (options & 32) > 0;
 
         // ── Zoom-level semantics ──────────────────────────────────────────────
         // zoomLevel > 0  : zoomed IN  — fewer chunks, each block drawn at scale×scale pixels
@@ -264,6 +265,10 @@ extern "C" {
         // Only set snow world for specific generator
         if (auto* alphaGen = dynamic_cast<GeneratorAlpha112_01*>(gen))
             alphaGen->snowCovered = snowWorld;
+        // Is beta generator, and thus can have darker grass
+        bool darkerGrass = false;
+        if (auto* betaGen = dynamic_cast<GeneratorBeta173*>(gen))
+            darkerGrass = true;
 
         for (int bx = 0; bx < batchSize; bx++) {
             for (int bz = 0; bz < batchSize; bz++) {
@@ -286,14 +291,20 @@ extern "C" {
                         } else if (showWater && surface_block_id == BLOCK_ICE) {
                             fr = 0.5f; fg = 0.8f; fb = 1.0f;
                         } else {
-                            Int3 biomeColor = GetBiomeColor(chunk.GetBiome(px, pz));
+                            Int3 biomeColor;
+                            bool renderDarkerGrass = tempHumiColor && darkerGrass;
+                            if (renderDarkerGrass)
+                                biomeColor = chunk.GetGrassColor(px,pz);
+                            else
+                                biomeColor = GetBiomeColor(chunk.GetBiome(px, pz));
                             if (blockColors) {
                                 surface_block_id = chunk.GetBlockType(Int3{px, topY-1, pz});
-                                Int3 blockColor = GetBlockColor(surface_block_id, biomeColor);
+                                Int3 blockColor = GetBlockColor(surface_block_id, biomeColor, renderDarkerGrass);
                                 fr = Int8ToFloat(blockColor.x);
                                 fg = Int8ToFloat(blockColor.y);
                                 fb = Int8ToFloat(blockColor.z);
                             } else {
+                                biomeColor = renderDarkerGrass ? MultiplyColor(biomeColor, HexToInt3(0x929292)) : biomeColor;
                                 fr = Int8ToFloat(biomeColor.x);
                                 fg = Int8ToFloat(biomeColor.y);
                                 fb = Int8ToFloat(biomeColor.z);

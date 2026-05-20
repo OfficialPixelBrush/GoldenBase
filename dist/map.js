@@ -86,6 +86,7 @@ function getOptions() {
     if (document.getElementById('check_water').checked) opt_value |= 1 << 2;
     if (document.getElementById('check_snow_mode').checked) opt_value |= 1 << 3;
     if (document.getElementById('check_snow_world').checked) opt_value |= 1 << 4;
+    if (document.getElementById('check_temp_humi_colors').checked) opt_value |= 1 << 5;
     return opt_value;
 }
 
@@ -320,11 +321,15 @@ window.addEventListener('load', () => {
                                 <label for="check_heightmap">Heightmap</label><br>
                                 <input type="checkbox" id="check_blockcolors" name="check_blockcolors" checked="true">
                                 <label for="check_blockcolors">Block colors</label><br>
+                                <br>
                                 <input type="checkbox" id="check_water" name="check_water" checked="true">
                                 <label for="check_water">Show Water</label><br>
                                 <input type="checkbox" id="check_snow_mode" name="check_snow_mode" checked="true">
                                 <label for="check_snow_mode">Show surface snow<br>
-                                <input type="checkbox" id="check_chunk_grid" name="check_chunk_grid" checked="true">
+                                <input type="checkbox" id="check_temp_humi_colors" name="check_temp_humi_colors">
+                                <label for="check_temp_humi_colors">Accurate Grass Colors<br>
+                                <br>
+                                <input type="checkbox" id="check_chunk_grid" name="check_chunk_grid">
                                 <label for="check_chunk_grid">Show Chunk Grid</label><br>
                                 <input type="checkbox" id="check_region_grid" name="check_region_grid" checked="true">
                                 <label for="check_region_grid">Show Region Grid</label><br>

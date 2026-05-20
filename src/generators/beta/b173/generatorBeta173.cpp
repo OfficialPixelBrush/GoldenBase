@@ -43,6 +43,19 @@ Chunk GeneratorBeta173::GenerateChunk(Int2 chunkPos) {
 	Int2 blockPos = Int2{chunkPos.x*CHUNK_WIDTH, chunkPos.y * CHUNK_WIDTH };
 	Beta173Biome(seed).GenerateBiomeMap(biomeMap, temperature, humidity, weirdness, blockPos, Int2{CHUNK_WIDTH, CHUNK_WIDTH});
 	c.SetBiomes(biomeMap);
+	// Cache temp and humi
+	std::transform(
+		temperature.begin(),
+		temperature.end(),
+		c.temperature,
+		[](double v) { return static_cast<float>(v); }
+	);
+	std::transform(
+		humidity.begin(),
+		humidity.end(),
+		c.humidity,
+		[](double v) { return static_cast<float>(v); }
+	);
 
 	// Generate the Terrain, minus any caves, as just stone
 	GenerateTerrain(chunkPos, c);
