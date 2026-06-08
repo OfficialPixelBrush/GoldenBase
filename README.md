@@ -1,6 +1,11 @@
 # GoldenBase
+![C++23](https://img.shields.io/badge/Language-C%2B%2B23-5E96CF)
+![Issues](https://img.shields.io/github/issues/OfficialPixelBrush/GoldenBase)
+![Pull requests](https://img.shields.io/github/issues-pr/OfficialPixelBrush/GoldenBase)
+
 A ChunkBase-like website for pre-Release Minecraft terrain generation
 
+## Discord
 This project is part of the OpenBeta initiative, so feel free to join the Discord server!
 https://discord.gg/JHTz2HSKrf
 
