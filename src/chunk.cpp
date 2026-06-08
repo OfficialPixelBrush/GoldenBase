@@ -68,8 +68,8 @@ void Chunk::GenerateHeightMap() {
 
 #include "helpers/grassColorBuffer.h"
 Int3 Chunk::GetGrassColor(int32_t x, int32_t z) {
-	float humi = humidity[x + CHUNK_WIDTH * z];
-	float temp = temperature[x + CHUNK_WIDTH * z];
+	float humi = humidity[z + CHUNK_WIDTH * x];
+	float temp = temperature[z + CHUNK_WIDTH * x];
 	humi *= temp;
 	int ti = int((1.0f - temp) * 255.0f);
 	int hi = int((1.0f - humi) * 255.0f);
