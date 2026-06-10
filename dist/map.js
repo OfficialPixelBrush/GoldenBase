@@ -242,21 +242,18 @@ const SlimeOverlay = L.GridLayer.extend({
         const ctx = tile.getContext('2d');
         const seed = document.getElementById('seedValue').value.trim();
 
-        // How many Minecraft blocks does this tile cover?
-        // At zoom 0 one tile = 'scale' pixels = 16*4 px = 1 chunk (16 blocks).
-        // At zoom -1 one tile covers 2 chunks, etc.
         const tileZoom = 0;
-        const zoomDiff = tileZoom - coords.z;    // how many levels we've zoomed out
-        const chunksPerTile = Math.pow(2, zoomDiff);
+        const zoomDiff = tileZoom - coords.z;
+        // Each tile at zoom 0 is 64px = 4 chunks wide, so multiply by 4
+        const chunksPerTile = Math.pow(2, zoomDiff) * 4;
 
-        // Top-left chunk coordinate for this tile
         const baseChunkX = coords.x * chunksPerTile;
         const baseChunkZ = coords.y * chunksPerTile;
 
-        const chunkPx = size.x / chunksPerTile; // pixel size of one chunk in this tile
+        const chunkPx = size.x / chunksPerTile;
 
         ctx.save();
-        ctx.globalAlpha = 0.35;
+        ctx.globalAlpha = 0.4;
         ctx.fillStyle = '#00ff00';
 
         for (let cx = 0; cx < chunksPerTile; cx++) {
@@ -276,6 +273,26 @@ const SlimeOverlay = L.GridLayer.extend({
         return tile;
     }
 });
+
+// Mirrors Java's String.hashCode()
+// Uses |0 at each step to replicate 32-bit signed overflow
+function javaStringHashCode(str) {
+    let h = 0;
+    for (let i = 0; i < str.length; i++) {
+        h = (Math.imul(31, h) + str.charCodeAt(i)) | 0;
+    }
+    return h;
+}
+
+function parseSeed(raw) {
+    const trimmed = raw.trim();
+    // If it parses as a plain integer, use it directly
+    if (/^-?\d+$/.test(trimmed)) {
+        return trimmed;   // keep as string for BigInt() downstream
+    }
+    // Otherwise hash it like Java does
+    return String(javaStringHashCode(trimmed));
+}
 
 let mapCenter = { x: 0, y: 0 };
 
@@ -436,7 +453,7 @@ window.addEventListener('load', () => {
 
                                     <input type="checkbox" id="check_temp_humi_colors">
                                     <label for="check_temp_humi_colors">Accurate Grass Colors</label><br><br>
-                                    
+
                                     <input type="checkbox" id="check_slime_chunks">
                                     <label for="check_slime_chunks">Show Slime Chunks</label><br>
 
@@ -555,6 +572,30 @@ window.addEventListener('load', () => {
                 });
             }
 
+            // Slime overlay — created once, shown/hidden by checkbox
+            const slimeLayer = new SlimeOverlay({
+                pane: 'gridPane',           // sits above tiles, below UI
+                tileSize: scale,
+                minZoom: -4,
+                maxZoom: 2,
+                noWrap: true,
+                opacity: 1,
+            });
+
+            function updateSlimeLayer() {
+                const show = document.getElementById('check_slime_chunks')?.checked;
+                if (show) {
+                    if (!map.hasLayer(slimeLayer)) slimeLayer.addTo(map);
+                    else slimeLayer.redraw();
+                } else {
+                    if (map.hasLayer(slimeLayer)) map.removeLayer(slimeLayer);
+                }
+            }
+
+            document
+                .getElementById('check_slime_chunks')
+                .addEventListener('change', updateSlimeLayer);
+
             // When updating generator/seed:
             window.updateGenJs = function() {
                 cancelAllTiles();
@@ -569,6 +610,7 @@ window.addEventListener('load', () => {
                 });
 
                 regenTiles(); // regenerate visible tiles
+                updateSlimeLayer();
             }
             
             document.getElementById('updateGen').addEventListener('click', updateGenJs);
@@ -601,37 +643,6 @@ window.addEventListener('load', () => {
                     return tile;
                 }
             });
-
-            // Slime overlay — created once, shown/hidden by checkbox
-            const slimeLayer = new SlimeOverlay({
-                pane: 'gridPane',           // sits above tiles, below UI
-                tileSize: scale,
-                minZoom: -4,
-                maxZoom: 2,
-                noWrap: true,
-                opacity: 1,
-            });
-
-            function updateSlimeLayer() {
-                const show = document.getElementById('check_slime_chunks')?.checked;
-                if (show) {
-                    if (!map.hasLayer(slimeLayer)) slimeLayer.addTo(map);
-                    else slimeLayer.redraw();
-                } else {
-                    if (map.hasLayer(slimeLayer)) map.removeLayer(slimeLayer);
-                }
-            }
-
-            document
-                .getElementById('check_slime_chunks')
-                .addEventListener('change', updateSlimeLayer);
-
-            // Also redraw slime overlay whenever the generator/seed changes
-            const _origUpdateGenJs = window.updateGenJs;
-            window.updateGenJs = function() {
-                _origUpdateGenJs();
-                updateSlimeLayer();
-            };
 
             // Add the graticule to your map
             const gridOverlay = new GridOverlay({
