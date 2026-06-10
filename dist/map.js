@@ -455,7 +455,7 @@ window.addEventListener('load', () => {
                                     <label for="check_temp_humi_colors">Accurate Grass Colors</label><br><br>
 
                                     <input type="checkbox" id="check_slime_chunks">
-                                    <label for="check_slime_chunks">Show Slime Chunks</label><br>
+                                    <label for="check_slime_chunks" id="check_slime_chunks_checkmark">Show Slime Chunks</label><br>
 
                                     <input type="checkbox" id="check_chunk_grid">
                                     <label for="check_chunk_grid">Show Chunk Grid</label><br>
@@ -489,11 +489,27 @@ window.addEventListener('load', () => {
                 }
                 snowWorldRow.style.display = "none";
             }
+
+            function checkIfSlimeChunks(genId) {
+                const checkbox = document.getElementById('check_slime_chunks');
+                const label = document.getElementById('check_slime_chunks_checkmark');
+                const supported = genId > 6 && genId != 8;
+
+                checkbox.disabled = !supported;
+                label.style.opacity = supported ? '' : '0.4';
+
+                if (!supported && checkbox.checked) {
+                    checkbox.checked = false;
+                    updateSlimeLayer();
+                }
+            }
             checkIfSnowWorld(9);
+            checkIfSlimeChunks(9);
             document
                 .getElementById('genSelection')
                 .addEventListener('change', (e) => {
                     checkIfSnowWorld(Number(e.target.value));
+                    checkIfSlimeChunks(Number(e.target.value));
                 });
 
             // Prevent clicks from propagating to the map
@@ -603,6 +619,7 @@ window.addEventListener('load', () => {
                 const seed = document.getElementById('seedValue').value.trim();
 
                 checkIfSnowWorld(genId);
+                checkIfSlimeChunks(genId);
 
                 // notify workers
                 workers.forEach(w => {
