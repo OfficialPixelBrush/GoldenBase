@@ -27,7 +27,7 @@ Just run the `build.sh` file, then use something like `python3 -m http.server` t
 - Highly accurate terrain generation
 - Version selection
 - Biome visualization
-- Slime Chunk
+- Slime Chunk visualizer
 
 ## Supported versions/ranges
 
