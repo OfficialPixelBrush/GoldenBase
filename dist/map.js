@@ -424,8 +424,9 @@ window.addEventListener('load', () => {
                             <td>
                                 <label>Seed</label>
                             </td>
-                            <td>
-                                <input id="seedValue" value="3257840388504953787">
+                            <td style="display:flex; align-items:center; gap:4px;">
+                                <input id="seedValue" value="3257840388504953787" style="flex:1; min-width:0;">
+                                <button id="randomSeed" title="Random seed" style="flex-shrink:0; font-size:18px; padding:2px 6px; cursor:pointer;">🎲</button>
                             </td>
                         </tr>
 
@@ -455,7 +456,7 @@ window.addEventListener('load', () => {
                                     <label for="check_temp_humi_colors">Accurate Grass Colors</label><br><br>
 
                                     <input type="checkbox" id="check_slime_chunks">
-                                    <label for="check_slime_chunks" id="check_slime_chunks_checkmark">Show Slime Chunks</label><br>
+                                    <label for="check_slime_chunks" id="check_slime_chunks_checkmark">Show Slime Chunks (doesn't work for text seeds yet)</label><br>
 
                                     <input type="checkbox" id="check_chunk_grid">
                                     <label for="check_chunk_grid">Show Chunk Grid</label><br>
@@ -685,6 +686,15 @@ window.addEventListener('load', () => {
             document
                 .getElementById('check_region_grid')
                 .addEventListener('change', refreshGridOverlay);
+            
+            document.getElementById('randomSeed').addEventListener('click', () => {
+                // Generate a random 64-bit-range signed long, same as Java's world seeds
+                const lo = Math.floor(Math.random() * 0x100000000);
+                const hi = Math.floor(Math.random() * 0x100000000);
+                const seed = BigInt.asIntN(64, (BigInt(hi) << 32n) | BigInt(lo));
+                document.getElementById('seedValue').value = seed.toString();
+                updateGenJs();
+            });
 
             Object.assign(crossH.style, {
                 position: 'absolute',
