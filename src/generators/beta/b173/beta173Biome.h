@@ -14,6 +14,7 @@ class Beta173Biome {
         NoiseOctaves<NoiseSimplex> humidityNoiseGen;
         NoiseOctaves<NoiseSimplex> weirdnessNoiseGen;
     public:
+        Beta173Biome();
         Beta173Biome(int64_t seed);
         void GenerateBiomeMap(std::vector<Biome>& biomeMap, std::vector<double>& temperature, std::vector<double>& humidity, std::vector<double>& weirdness, Int2 blockPos, Int2 max);
 	    void GenerateTemperature(std::vector<double>& temperature, std::vector<double>& weirdness, Int2 chunkPos, Int2 max);

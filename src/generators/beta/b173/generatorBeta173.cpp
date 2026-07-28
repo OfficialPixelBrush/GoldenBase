@@ -23,6 +23,7 @@ GeneratorBeta173::GeneratorBeta173(int64_t pSeed, float multiplier) : Generator(
 
 	// Init Caver
 	caver = Beta173Caver();
+	biomeGen = Beta173Biome(pSeed);
 }
 
 /**
@@ -41,7 +42,7 @@ Chunk GeneratorBeta173::GenerateChunk(Int2 chunkPos) {
 
 	// Generate Biomes
 	Int2 blockPos = Int2{chunkPos.x*CHUNK_WIDTH, chunkPos.y * CHUNK_WIDTH };
-	Beta173Biome(seed).GenerateBiomeMap(biomeMap, temperature, humidity, weirdness, blockPos, Int2{CHUNK_WIDTH, CHUNK_WIDTH});
+	biomeGen.GenerateBiomeMap(biomeMap, temperature, humidity, weirdness, blockPos, Int2{CHUNK_WIDTH, CHUNK_WIDTH});
 	c.SetBiomes(biomeMap);
 	// Cache temp and humi
 	std::transform(

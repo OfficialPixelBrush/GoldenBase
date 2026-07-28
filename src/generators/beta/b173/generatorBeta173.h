@@ -43,6 +43,7 @@ class GeneratorBeta173 : public Generator {
 
 	// Cave Gen
 	Beta173Caver caver;
+	Beta173Biome biomeGen;
 
 	void GenerateTerrain(Int2 chunkPos, Chunk &c);
 	void GenerateTerrainNoise(std::vector<double> &terrainMap, Int3 chunkPos, Int3 max);

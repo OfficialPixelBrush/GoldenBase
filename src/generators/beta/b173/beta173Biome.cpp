@@ -1,5 +1,8 @@
 #include "beta173Biome.h"
 
+// DO NOT USE!!
+Beta173Biome::Beta173Biome() {}
+
 /**
  * @brief Construct a new Beta 1.7.3 Biome
  * 
