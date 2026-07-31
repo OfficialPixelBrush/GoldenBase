@@ -227,10 +227,10 @@ double GeneratorInfdev20100327::InitializeNoiseField(double var1, double var3, d
 bool GeneratorInfdev20100327::WorldGenMinableGenerate(BlockType blockType, World *pWorld, JavaRandom& pRand, int32_t var3,
 													  int32_t var4, int32_t macroX) {
 	float macroZ = pRand.nextFloat() * (float)JavaMath::PI;
-	double var7 = double(float(var3 + 8) + MathHelper::sin(macroZ) * 2.0F);
-	double blockY = double(float(var3 + 8) - MathHelper::sin(macroZ) * 2.0F);
-	double world1 = double(float(macroX + 8) + MathHelper::cos(macroZ) * 2.0F);
-	double world3 = double(float(macroX + 8) - MathHelper::cos(macroZ) * 2.0F);
+	double var7 = double(float(var3 + 8) + MathHelper::Sin(macroZ) * 2.0F);
+	double blockY = double(float(var3 + 8) - MathHelper::Sin(macroZ) * 2.0F);
+	double world1 = double(float(macroX + 8) + MathHelper::Cos(macroZ) * 2.0F);
+	double world3 = double(float(macroX + 8) - MathHelper::Cos(macroZ) * 2.0F);
 	double world5 = double(var4 + pRand.nextInt(3) + 2);
 	double world7 = double(var4 + pRand.nextInt(3) + 2);
 
@@ -239,8 +239,8 @@ bool GeneratorInfdev20100327::WorldGenMinableGenerate(BlockType blockType, World
 		double rand2 = world5 + (world7 - world5) * (double)var3 / 16.0;
 		double rand4 = world1 + (world3 - world1) * (double)var3 / 16.0;
 		double rand6 = pRand.nextDouble();
-		double rand8 = double(MathHelper::sin((float)var3 / 16.0F * (float)JavaMath::PI) + 1.0F) * rand6 + 1.0;
-		double var30 = double(MathHelper::sin((float)var3 / 16.0F * (float)JavaMath::PI) + 1.0F) * rand6 + 1.0;
+		double rand8 = double(MathHelper::Sin((float)var3 / 16.0F * (float)JavaMath::PI) + 1.0F) * rand6 + 1.0;
+		double var30 = double(MathHelper::Sin((float)var3 / 16.0F * (float)JavaMath::PI) + 1.0F) * rand6 + 1.0;
 
 		for (var4 = Java::DoubleToInt32(rand0 - rand8 / 2.0); var4 <= Java::DoubleToInt32(rand0 + rand8 / 2.0); ++var4) {
 			for (macroX = Java::DoubleToInt32(rand2 - var30 / 2.0); macroX <= Java::DoubleToInt32(rand2 + var30 / 2.0); ++macroX) {

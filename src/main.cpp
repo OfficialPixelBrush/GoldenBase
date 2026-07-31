@@ -144,7 +144,7 @@ extern "C" {
         if (isNumber) {
             currentSeed = std::strtoll(seedString.c_str(), nullptr, 10);
         } else {
-            currentSeed = int64_t(hashCode(seedString));
+            currentSeed = int64_t(HashCode(seedString));
         }
         
         activeGenId = static_cast<genSelect>(genId);
@@ -355,6 +355,7 @@ extern "C" {
 }
 
 int main() {
+	MathHelper::InitSinTable();
     UpdateGenAndSeed(
         std::to_string(currentSeed).c_str(),
         GEN_BETA_BETA173

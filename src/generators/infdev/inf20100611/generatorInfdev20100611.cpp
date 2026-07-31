@@ -115,16 +115,16 @@ Chunk GeneratorInfdev20100611::GenerateChunk(Int2 chunkPos) {
 				double n111 = noiseArray[((macroX + 1) * sampleWidth + macroZ + 1) * sampleHeight + macroY + 1];
 
 				for (int32_t subY = 0; subY < 8; ++subY) {
-					double lerpY = (double)subY / 8.0;
-					double y00 = n000 + (n010 - n000) * lerpY;
-					double y01 = n001 + (n011 - n001) * lerpY;
-					double y10 = n100 + (n110 - n100) * lerpY;
-					double y11 = n101 + (n111 - n101) * lerpY;
+					double LerpY = (double)subY / 8.0;
+					double y00 = n000 + (n010 - n000) * LerpY;
+					double y01 = n001 + (n011 - n001) * LerpY;
+					double y10 = n100 + (n110 - n100) * LerpY;
+					double y11 = n101 + (n111 - n101) * LerpY;
 
 					for (int32_t subX = 0; subX < 4; ++subX) {
-						double lerpX = (double)subX / 4.0;
-						double xy0 = y00 + (y10 - y00) * lerpX;
-						double xy1 = y01 + (y11 - y01) * lerpX;
+						double LerpX = (double)subX / 4.0;
+						double xy0 = y00 + (y10 - y00) * LerpX;
+						double xy1 = y01 + (y11 - y01) * LerpX;
 
 						int32_t blockIndex =
 							(subX + (macroX << 2)) << 11 |
@@ -132,8 +132,8 @@ Chunk GeneratorInfdev20100611::GenerateChunk(Int2 chunkPos) {
 							(macroY << 3) + subY;
 
 						for (int32_t subZ = 0; subZ < 4; ++subZ) {
-							double lerpZ = (double)subZ / 4.0;
-							double terrainDensity = xy0 + (xy1 - xy0) * lerpZ;
+							double LerpZ = (double)subZ / 4.0;
+							double terrainDensity = xy0 + (xy1 - xy0) * LerpZ;
 
 							BlockType blockType = BLOCK_AIR;
 							if ((macroY << 3) + subY < WATER_LEVEL) {

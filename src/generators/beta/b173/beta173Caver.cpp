@@ -78,14 +78,14 @@ void Beta173Caver::CarveCave(Int2 chunkPos, Chunk &c, Vec3 offset,
 	int32_t var25 = caveRand.nextInt(tunnelLength / 2) + tunnelLength / 4;
 
 	for (bool var26 = caveRand.nextInt(6) == 0; tunnelStep < tunnelLength; ++tunnelStep) {
-		double var27 = 1.5 + double(MathHelper::sin(float(tunnelStep) * float(JavaMath::PI) / float(tunnelLength)) *
+		double var27 = 1.5 + double(MathHelper::Sin(float(tunnelStep) * float(JavaMath::PI) / float(tunnelLength)) *
 									   tunnelRadius * 1.0F);
 		double var29 = var27 * verticalScale;
-		float var31 = MathHelper::cos(carvePitch);
-		float var32 = MathHelper::sin(carvePitch);
-		offset.x += double(MathHelper::cos(carveYaw) * var31);
+		float var31 = MathHelper::Cos(carvePitch);
+		float var32 = MathHelper::Sin(carvePitch);
+		offset.x += double(MathHelper::Cos(carveYaw) * var31);
 		offset.y += double(var32);
-		offset.z += double(MathHelper::sin(carveYaw) * var31);
+		offset.z += double(MathHelper::Sin(carveYaw) * var31);
 		if (var26) {
 			carvePitch *= 0.92F;
 		} else {
@@ -117,12 +117,12 @@ void Beta173Caver::CarveCave(Int2 chunkPos, Chunk &c, Vec3 offset,
 
 			if (offset.x >= chunkCenterX - 16.0 - var27 * 2.0 && offset.z >= chunkCenterZ - 16.0 - var27 * 2.0 &&
 				offset.x <= chunkCenterX + 16.0 + var27 * 2.0 && offset.z <= chunkCenterZ + 16.0 + var27 * 2.0) {
-				int32_t xMin = MathHelper::floor_double(offset.x - var27) - chunkPos.x * 16 - 1;
-				int32_t xMax = MathHelper::floor_double(offset.x + var27) - chunkPos.x * 16 + 1;
-				int32_t yMin = MathHelper::floor_double(offset.y - var29) - 1;
-				int32_t yMax = MathHelper::floor_double(offset.y + var29) + 1;
-				int32_t zMin = MathHelper::floor_double(offset.z - var27) - chunkPos.y * 16 - 1;
-				int32_t zMax = MathHelper::floor_double(offset.z + var27) - chunkPos.y * 16 + 1;
+				int32_t xMin = MathHelper::FloorDouble(offset.x - var27) - chunkPos.x * 16 - 1;
+				int32_t xMax = MathHelper::FloorDouble(offset.x + var27) - chunkPos.x * 16 + 1;
+				int32_t yMin = MathHelper::FloorDouble(offset.y - var29) - 1;
+				int32_t yMax = MathHelper::FloorDouble(offset.y + var29) + 1;
+				int32_t zMin = MathHelper::FloorDouble(offset.z - var27) - chunkPos.y * 16 - 1;
+				int32_t zMax = MathHelper::FloorDouble(offset.z + var27) - chunkPos.y * 16 + 1;
 				// Limiting to chunk boundaries
 				if (xMin < 0)
 					xMin = 0;
