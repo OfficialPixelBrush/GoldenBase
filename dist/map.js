@@ -91,12 +91,13 @@ function getOptions() {
 }
 
 function requestTile(x, y, z, tileSize) {
-    const genId = currentGenId; // capture current generation
+    const genId = currentGenId;
     return new Promise((resolve) => {
         const id = tileIdCounter++;
         pendingTiles[id] = (bytes) => {
-            if (genId === currentGenId) resolve(bytes);
             delete pendingTiles[id];
+            if (bytes == null || genId !== currentGenId) resolve(null);
+            else resolve(bytes);
         };
         queue.push({ x, y, z, id, tileSize, options: getOptions() });
         dispatch();
@@ -547,28 +548,33 @@ window.addEventListener('load', () => {
             };
 
             function cancelAllTiles() {
-                currentGenId++;                            // invalidates all in-flight promises
-                queue.length = 0;                          // discard queued jobs
-                for (const k in pendingTiles) delete pendingTiles[k]; // discard callbacks
+                currentGenId++;
+                queue.length = 0;
+                const pending = pendingTiles;
+                for (const k of Object.keys(pending)) {
+                    const cb = pending[k];
+                    delete pending[k];
+                    cb(null);
+                }
             }
 
             function clearOffscreenTiles() {
                 const bounds = map.getBounds();
                 const currentZoom = map.getZoom();
 
-                // Filter the queue: keep only tiles inside current bounds
                 for (let i = queue.length - 1; i >= 0; i--) {
                     const { x, y, z, id } = queue[i];
                     const latlng = map.unproject([x * scale, y * scale], currentZoom);
                     if (!bounds.contains(latlng)) {
-                        queue.splice(i, 1);      // remove off-screen tile
-                        delete pendingTiles[id]; // cancel its promise
+                        queue.splice(i, 1);
+                        const cb = pendingTiles[id];
+                        delete pendingTiles[id];
+                        cb?.(null);
                     }
                 }
             }
             
             function regenTiles() {
-                // regenerate currently visible tiles
                 map.eachLayer(layer => {
                     if (
                         layer instanceof L.GridLayer &&
@@ -577,9 +583,9 @@ window.addEventListener('load', () => {
                     ) {
                         Object.values(layer._tiles).forEach(tileObj => {
                             const coords = tileObj.coords;
-                            // remove old tile promise to force regeneration
                             const tile = tileObj.el;
                             requestTile(coords.x, coords.y, coords.z, tile.width).then((bytes) => {
+                                if (!bytes) return;
                                 const ctx = tile.getContext('2d');
                                 const imageData = ctx.createImageData(tile.width, tile.height);
                                 imageData.data.set(bytes);
@@ -645,18 +651,19 @@ window.addEventListener('load', () => {
                     const tile = document.createElement('canvas');
                     tile.width = scale;
                     tile.height = scale;
-                    const ctx = tile.getContext('2d');
+                    // Defer done() so Leaflet can register the tile first. Never
+                    // tying done() to WASM completion is what froze zoom-in:
+                    // cancelled promises never resolved, so the layer stayed loading.
+                    setTimeout(() => done(null, tile), 0);
 
-                    const tileKey = `${coords.x},${coords.y},${coords.z}`; // unique key
-
+                    const tileKey = `${coords.x},${coords.y},${coords.z}`;
                     requestTile(coords.x, coords.y, coords.z, scale).then((bytes) => {
-                        // Only draw if tile still matches the coords (prevents old tiles overwriting)
-                        if (tileKey === `${coords.x},${coords.y},${coords.z}`) {
-                            const imageData = ctx.createImageData(scale, scale);
-                            imageData.data.set(bytes);
-                            ctx.putImageData(imageData, 0, 0);
-                            done(null, tile);
-                        }
+                        if (!bytes) return;
+                        if (tileKey !== `${coords.x},${coords.y},${coords.z}`) return;
+                        const ctx = tile.getContext('2d');
+                        const imageData = ctx.createImageData(scale, scale);
+                        imageData.data.set(bytes);
+                        ctx.putImageData(imageData, 0, 0);
                     });
 
                     return tile;

@@ -347,9 +347,16 @@ extern "C" {
                 for (int px = 0; px < CHUNK_WIDTH; px++) {
                     for (int pz = 0; pz < CHUNK_WIDTH; pz++) {
                         int topY = chunk.GetHeightValue(px, pz);
-                        int surface_block_id = chunk.GetBlockType(Int3{px, topY, pz});
-                        if (blockColors)
-                            surface_block_id = chunk.GetBlockType(Int3{px, topY - 1, pz});
+                        int cover = chunk.GetBlockType(Int3{px, topY, pz});
+                        int below = topY > 0 ? chunk.GetBlockType(Int3{px, topY - 1, pz}) : BLOCK_AIR;
+                        int surface_block_id = cover;
+                        const bool coverLiquid = cover == BLOCK_WATER_STILL || cover == BLOCK_ICE;
+                        const bool belowLiquid = below == BLOCK_WATER_STILL || below == BLOCK_ICE;
+                        if (showWater && (coverLiquid || belowLiquid)) {
+                            surface_block_id = coverLiquid ? cover : below;
+                        } else if (blockColors) {
+                            surface_block_id = below;
+                        }
                         int outX = bx * CHUNK_WIDTH + px;
                         int outZ = bz * CHUNK_WIDTH + pz;
                         writePixel(outX, outZ, topY, surface_block_id, chunk.GetBiome(px, pz),

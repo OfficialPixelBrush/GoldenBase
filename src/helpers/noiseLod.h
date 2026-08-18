@@ -16,9 +16,8 @@ struct TileColumn {
 	float humidity = 0.5f;
 };
 
-// Full octave count only at stride 1 (1:1 block/pixel). Each doubling of
-// stride drops two of the finest octaves; a coarse core is always kept so
-// continents / large hills still read correctly when zoomed out.
+// Terrain octaves: full count only at stride 1. Each doubling of stride
+// drops two of the finest octaves; a coarse core is always kept.
 inline int32_t OctaveBudget(int32_t fullOctaves, int32_t stride) {
 	if (fullOctaves <= 0)
 		return 0;
@@ -29,6 +28,20 @@ inline int32_t OctaveBudget(int32_t fullOctaves, int32_t stride) {
 		drops += 2;
 	const int32_t minKeep = std::max(2, fullOctaves / 4);
 	return std::max(minKeep, fullOctaves - drops);
+}
+
+// Biome octaves are few (2–4) and define map-scale climate boundaries, so
+// they drop much more slowly: full detail through 2:1, then one octave per
+// further doubling, never below 2.
+inline int32_t BiomeOctaveBudget(int32_t fullOctaves, int32_t stride) {
+	if (fullOctaves <= 0)
+		return 0;
+	if (stride <= 2)
+		return fullOctaves;
+	int32_t drops = 0;
+	for (int32_t s = stride >> 1; s > 1; s >>= 1)
+		++drops;
+	return std::max(std::min(2, fullOctaves), fullOctaves - drops);
 }
 
 // Vertical density samples for the preview path. Native terrain uses 17

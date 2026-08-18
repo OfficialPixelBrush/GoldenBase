@@ -117,7 +117,7 @@ void Beta173Biome::GenerateTemperature(std::vector<double>& temperature, std::ve
 }
 
 void Beta173Biome::SetDetailLevel(int32_t stride) {
-	temperatureNoiseGen.SetDetail(OctaveBudget(4, stride));
-	humidityNoiseGen.SetDetail(OctaveBudget(4, stride));
-	weirdnessNoiseGen.SetDetail(OctaveBudget(2, stride));
+	temperatureNoiseGen.SetDetail(BiomeOctaveBudget(4, stride));
+	humidityNoiseGen.SetDetail(BiomeOctaveBudget(4, stride));
+	weirdnessNoiseGen.SetDetail(BiomeOctaveBudget(2, stride));
 }
