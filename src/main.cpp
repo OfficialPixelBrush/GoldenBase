@@ -210,6 +210,7 @@ Int3 GetBlockColor(int block_id, Int3 biomeColor, bool darkerGrass) {
         case BLOCK_CLAY:            return HexToInt3(0xa0a7b2);
         case BLOCK_SNOW:            return HexToInt3(0xffffff);
         case BLOCK_SNOW_LAYER:      return HexToInt3(0xffffff);
+        case BLOCK_DANDELION:       return HexToInt3(0xdee602);
     }
 }
 
@@ -383,14 +384,15 @@ extern "C" {
         const int colorMode = colorTopology ? 3 : (colorAccurate ? 2 : (colorBiome ? 1 : 0));
 
         auto writePixel = [&](int outX, int outZ, int topY, int surface_block_id, Biome biome, float temperature,
-                              float humidity) {
+                              float humidity, bool forceMaterial = false) {
             if (!showWater && IsWaterOrIce(surface_block_id))
                 surface_block_id = int(GetFillerBlock(biome));
             const bool isWater = surface_block_id == BLOCK_WATER_STILL || surface_block_id == BLOCK_WATER_FLOWING;
             const bool isIce = surface_block_id == BLOCK_ICE;
             float fr, fg, fb;
             const bool showLiquid = showWater && (isWater || isIce);
-            if (colorMode == 3 && !blockColors && !showLiquid) {
+            const bool useMaterial = blockColors || forceMaterial;
+            if (colorMode == 3 && !useMaterial && !showLiquid) {
                 Int3 topo = TopographicColor(topY, false, false);
                 fr = Int8ToFloat(topo.x);
                 fg = Int8ToFloat(topo.y);
@@ -402,7 +404,7 @@ extern "C" {
             } else {
                 Int3 tint = ColorModeTint(colorMode, biome, temperature, humidity);
                 const bool accurateBeta = colorMode == 2 && darkerGrass;
-                if (blockColors) {
+                if (useMaterial) {
                     Int3 blockColor = GetBlockColor(surface_block_id, tint, accurateBeta);
                     fr = Int8ToFloat(blockColor.x);
                     fg = Int8ToFloat(blockColor.y);
@@ -459,15 +461,36 @@ extern "C" {
             const int32_t originX = int32_t(int64_t(x) * int64_t(batchSize) * CHUNK_WIDTH);
             const int32_t originZ = int32_t(int64_t(z) * int64_t(batchSize) * CHUNK_WIDTH);
             gen->SampleColumns(originX, originZ, TILE_PIXELS, stride, columns);
+            const int32_t farlandsAt = (activeGenId == GEN_INFDEV_INFDEV20100227) ? 33554432
+                                     : (activeGenId != GEN_INVALID) ? 12550821 : 0;
+            const bool stoneWallFarlands = activeGenId == GEN_INFDEV_INFDEV20100227;
             for (int pz = 0; pz < TILE_PIXELS; ++pz) {
                 for (int px = 0; px < TILE_PIXELS; ++px) {
-                    const TileColumn &col = columns[pz * TILE_PIXELS + px];
+                    TileColumn col = columns[pz * TILE_PIXELS + px];
+                    bool forceMaterial = false;
+                    if (farlandsAt > 0) {
+                        const int64_t wx = int64_t(originX) + int64_t(px) * stride;
+                        const int64_t wz = int64_t(originZ) + int64_t(pz) * stride;
+                        const int64_t ax = wx < 0 ? -wx : wx;
+                        const int64_t az = wz < 0 ? -wz : wz;
+                        if (ax >= farlandsAt || az >= farlandsAt) {
+                            col.height = CHUNK_HEIGHT - 1;
+                            if (stoneWallFarlands) {
+                                col.surface = BLOCK_STONE;
+                                col.biome = BIOME_NONE;
+                                forceMaterial = true;
+                            } else {
+                                col.surface = GetTopBlock(col.biome);
+                            }
+                        }
+                    }
                     int surface = col.surface;
                     if (!showWater && IsWaterOrIce(surface))
                         surface = GetFillerBlock(col.biome);
                     if (blockColors && surface == BLOCK_AIR)
                         surface = BLOCK_STONE;
-                    writePixel(px, pz, col.height, surface, col.biome, col.temperature, col.humidity);
+                    writePixel(px, pz, col.height, surface, col.biome, col.temperature, col.humidity,
+                               forceMaterial);
                 }
             }
             if (hillshade)

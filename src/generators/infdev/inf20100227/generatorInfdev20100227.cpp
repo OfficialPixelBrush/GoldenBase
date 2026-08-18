@@ -62,7 +62,8 @@ Chunk GeneratorInfdev20100227::GenerateChunk(Int2 chunkPos) {
 				if ((blockX == 0 || blockZ == 0) && blockY <= terrainHeight + 2) {
 					blockType = BLOCK_OBSIDIAN;
 				} else if (blockY == terrainHeight + 1 && terrainHeight >= WATER_LEVEL && decorationChance < 0.02f) {
-					blockType = BLOCK_DANDELION;
+					// Skip this, just adds clutter + relies on JavaRandom, so unreliable!
+					//blockType = BLOCK_DANDELION;
 				} else if (blockY == terrainHeight && terrainHeight >= WATER_LEVEL) {
 					blockType = BLOCK_GRASS;
 				} else if (blockY <= terrainHeight - 2) {

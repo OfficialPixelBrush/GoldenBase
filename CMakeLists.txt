@@ -44,7 +44,6 @@ target_compile_options(GoldenBase PRIVATE
     -msimd128
 )
 
-# Add the flags you had in your emcc command
 target_link_options(GoldenBase PRIVATE
     -O3
     -flto
