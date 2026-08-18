@@ -91,12 +91,7 @@ Int3 LerpInt3(Int3 a, Int3 b, float t) {
 }
 
 // Hypsometric (elevation) tint for the topographic map mode.
-Int3 TopographicColor(int height, bool water, bool ice) {
-    if (ice)
-        return HexToInt3(0xc5e8f7);
-    if (water)
-        return HexToInt3(0x3d7ea6);
-
+Int3 HypsometricColor(int height) {
     struct Stop {
         int y;
         int32_t hex;
@@ -127,6 +122,14 @@ Int3 TopographicColor(int height, bool water, bool ice) {
     return HexToInt3(stops[n - 1].hex);
 }
 
+Int3 TopographicColor(int height, bool water, bool ice) {
+    if (ice)
+        return HexToInt3(0xc5e8f7);
+    if (water)
+        return LerpInt3(HypsometricColor(height), HexToInt3(0x3d7ea6), 0.28f);
+    return HypsometricColor(height);
+}
+
 void ApplyTopoHillshade() {
     const float lx = -0.57735027f;
     const float ly = 0.57735027f;
@@ -153,7 +156,7 @@ void ApplyTopoHillshade() {
             if (shade < 0.22f)
                 shade = 0.22f;
             if (tileLiquid[i])
-                shade = 0.82f + 0.18f * shade;
+                shade = 0.52f + 0.48f * shade;
             const int idx = i * 4;
             buffer[idx + 0] = clamp(float(buffer[idx + 0]) * shade);
             buffer[idx + 1] = clamp(float(buffer[idx + 1]) * shade);
@@ -484,17 +487,17 @@ extern "C" {
                 fr = Int8ToFloat(mapColor.x);
                 fg = Int8ToFloat(mapColor.y);
                 fb = Int8ToFloat(mapColor.z);
+            } else if (colorMode == 3 && !useMaterial) {
+                Int3 topo = TopographicColor(topY, showLiquid && isWater, showLiquid && isIce);
+                fr = Int8ToFloat(topo.x);
+                fg = Int8ToFloat(topo.y);
+                fb = Int8ToFloat(topo.z);
             } else if (showLiquid && isWater) {
-                fr = 0.0f; fg = 0.0f; fb = 1.0f;
+                fr = 0.08f; fg = 0.28f; fb = 0.78f;
             } else if (showLiquid && isIce) {
                 fr = 0.5f; fg = 0.8f; fb = 1.0f;
             } else if (snowMode && isSnow) {
                 fr = 1.0f; fg = 1.0f; fb = 1.0f;
-            } else if (colorMode == 3 && !useMaterial) {
-                Int3 topo = TopographicColor(topY, false, false);
-                fr = Int8ToFloat(topo.x);
-                fg = Int8ToFloat(topo.y);
-                fb = Int8ToFloat(topo.z);
             } else {
                 Int3 tint = ColorModeTint(colorMode, biome, temperature, humidity);
                 const bool accurateBeta = colorMode == 2 && darkerGrass;
@@ -512,8 +515,14 @@ extern "C" {
                 }
             }
             if (heightmap && !hillshade && colorMode != 4) {
-                float heightFloat = (HeightToFloat(topY) * 1.5f);
-                float gamma = 0.9f;
+                float heightFloat;
+                if (showLiquid && isWater) {
+                    float seafloor = float(std::max(0, std::min(WATER_LEVEL, topY))) / float(WATER_LEVEL);
+                    heightFloat = 0.22f + 1.15f * seafloor;
+                } else {
+                    heightFloat = (HeightToFloat(topY) * 1.5f);
+                }
+                float gamma = (showLiquid && isWater) ? 0.75f : 0.9f;
                 float shadedHeight = powf(heightFloat, gamma);
                 fr *= shadedHeight;
                 fg *= shadedHeight;

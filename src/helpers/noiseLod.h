@@ -30,16 +30,29 @@ inline int32_t OctaveBudget(int32_t fullOctaves, int32_t stride) {
 	return std::max(minKeep, fullOctaves - drops);
 }
 
+// Sand/gravel beach noise is only 4 octaves. Keep it through a few zoom-out
+// steps so coasts stay sandy, then drop it once pixels are much coarser
+// than a beach is wide.
+inline int32_t SurfaceOctaveBudget(int32_t fullOctaves, int32_t stride) {
+	if (fullOctaves <= 0)
+		return 0;
+	if (stride <= 4)
+		return fullOctaves;
+	if (stride <= 8)
+		return std::max(2, fullOctaves / 2);
+	return 0;
+}
+
 // Biome octaves are few (2–4) and define map-scale climate boundaries, so
-// they drop much more slowly: full detail through 2:1, then one octave per
+// they drop much more slowly: full detail through 8:1, then one octave per
 // further doubling, never below 2.
 inline int32_t BiomeOctaveBudget(int32_t fullOctaves, int32_t stride) {
 	if (fullOctaves <= 0)
 		return 0;
-	if (stride <= 2)
+	if (stride <= 8)
 		return fullOctaves;
 	int32_t drops = 0;
-	for (int32_t s = stride >> 1; s > 1; s >>= 1)
+	for (int32_t s = stride >> 3; s > 1; s >>= 1)
 		++drops;
 	return std::max(std::min(2, fullOctaves), fullOctaves - drops);
 }
@@ -126,4 +139,17 @@ inline void FinishColumnSurface(TileColumn &col, bool hasBiomes, bool snowWorld,
 	} else {
 		col.surface = BLOCK_GRASS;
 	}
+}
+
+// Beta/Alpha ReplaceBlocksForBiome: sand/gravel only near sea level.
+inline void ApplyCoastalBeach(TileColumn &col, double sandNoise, double gravelNoise) {
+	if (col.height < WATER_LEVEL || col.height > WATER_LEVEL + 1)
+		return;
+	if (col.surface == BLOCK_WATER_STILL || col.surface == BLOCK_WATER_FLOWING || col.surface == BLOCK_ICE ||
+		col.surface == BLOCK_SNOW_LAYER || col.surface == BLOCK_SNOW)
+		return;
+	if (sandNoise > 0.0)
+		col.surface = BLOCK_SAND;
+	else if (gravelNoise > 3.0)
+		col.surface = BLOCK_GRAVEL;
 }

@@ -386,9 +386,8 @@ void GeneratorAlpha112_01::SetDetailLevel(int32_t stride) {
 	selectorNoiseGen.SetDetail(OctaveBudget(8, stride));
 	continentalnessNoiseGen.SetDetail(OctaveBudget(10, stride));
 	depthNoiseGen.SetDetail(OctaveBudget(16, stride));
-	const int32_t surface = stride > 1 ? 0 : 4;
-	sandGravelNoiseGen.SetDetail(surface);
-	stoneNoiseGen.SetDetail(surface);
+	sandGravelNoiseGen.SetDetail(SurfaceOctaveBudget(4, stride));
+	stoneNoiseGen.SetDetail(stride > 1 ? 0 : 4);
 }
 
 void GeneratorAlpha112_01::FillDensityStrip(std::vector<double> &terrainMap, double coordX, double coordZ, double scaleXZ,
@@ -474,6 +473,13 @@ void GeneratorAlpha112_01::SampleColumns(int32_t originX, int32_t originZ, int32
 	const double yStep = 128.0 / double(yCount - 1);
 	const TerrainSampleCoords coords = MakeTerrainSampleCoords(originX, originZ, stride, yCount);
 	constexpr int32_t kStrip = 16;
+	const bool beaches = SurfaceOctaveBudget(4, stride) > 0;
+	if (beaches) {
+		const double ng = double(stride) / 32.0;
+		sandGravelNoiseGen.GenerateOctaves(sandNoise, coords.coordX, coords.coordZ, 0.0, samples, samples, 1, ng, ng, 1.0);
+		sandGravelNoiseGen.GenerateOctaves(gravelNoise, coords.coordZ, 109.0134, coords.coordX, samples, 1, samples, ng, 1.0,
+										   ng);
+	}
 
 	for (int32_t z0 = 0; z0 < samples; z0 += kStrip) {
 		const int32_t nz = std::min(kStrip, samples - z0);
@@ -489,6 +495,8 @@ void GeneratorAlpha112_01::SampleColumns(int32_t originX, int32_t originZ, int32
 				c.temperature = snowCovered ? 0.0f : 1.0f;
 				c.humidity = 0.5f;
 				FinishColumnSurface(c, false, snowCovered, snowMode);
+				if (beaches)
+					ApplyCoastalBeach(c, sandNoise[ix * samples + (z0 + iz)], gravelNoise[ix * samples + (z0 + iz)]);
 			}
 		}
 	}

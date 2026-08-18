@@ -193,9 +193,8 @@ void GeneratorInfdev20100420::SetDetailLevel(int32_t stride) {
 	noiseGen1.SetDetail(OctaveBudget(16, stride));
 	noiseGen2.SetDetail(OctaveBudget(16, stride));
 	noiseGen3.SetDetail(OctaveBudget(8, stride));
-	const int32_t surface = stride > 1 ? 0 : 4;
-	noiseGen4.SetDetail(surface);
-	noiseGen5.SetDetail(surface);
+	noiseGen4.SetDetail(SurfaceOctaveBudget(4, stride));
+	noiseGen5.SetDetail(stride > 1 ? 0 : 4);
 }
 
 void GeneratorInfdev20100420::FillDensityStrip(std::vector<double> &terrainMap, double coordX, double coordZ, double scaleXZ,
@@ -251,6 +250,12 @@ void GeneratorInfdev20100420::SampleColumns(int32_t originX, int32_t originZ, in
 				c.temperature = 1.0f;
 				c.humidity = 0.5f;
 				FinishColumnSurface(c, false, false);
+				if (SurfaceOctaveBudget(4, stride) > 0) {
+					const double nX = double(originX + ix * stride);
+					const double nZ = double(originZ + (z0 + iz) * stride);
+					ApplyCoastalBeach(c, noiseGen4.GenerateOctaves(nX / 32.0, nZ / 32.0, 0.0),
+									  noiseGen4.GenerateOctaves(nZ / 32.0, 109.0134, nX / 32.0));
+				}
 			}
 		}
 	}
