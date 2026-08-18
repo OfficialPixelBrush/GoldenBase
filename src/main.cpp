@@ -391,16 +391,19 @@ extern "C" {
             const bool isIce = surface_block_id == BLOCK_ICE;
             float fr, fg, fb;
             const bool showLiquid = showWater && (isWater || isIce);
+            const bool isSnow = surface_block_id == BLOCK_SNOW_LAYER || surface_block_id == BLOCK_SNOW;
             const bool useMaterial = blockColors || forceMaterial;
-            if (colorMode == 3 && !useMaterial && !showLiquid) {
+            if (showLiquid && isWater) {
+                fr = 0.0f; fg = 0.0f; fb = 1.0f;
+            } else if (showLiquid && isIce) {
+                fr = 0.5f; fg = 0.8f; fb = 1.0f;
+            } else if (snowMode && isSnow) {
+                fr = 1.0f; fg = 1.0f; fb = 1.0f;
+            } else if (colorMode == 3 && !useMaterial) {
                 Int3 topo = TopographicColor(topY, false, false);
                 fr = Int8ToFloat(topo.x);
                 fg = Int8ToFloat(topo.y);
                 fb = Int8ToFloat(topo.z);
-            } else if (showLiquid && isWater) {
-                fr = 0.0f; fg = 0.0f; fb = 1.0f;
-            } else if (showLiquid && isIce) {
-                fr = 0.5f; fg = 0.8f; fb = 1.0f;
             } else {
                 Int3 tint = ColorModeTint(colorMode, biome, temperature, humidity);
                 const bool accurateBeta = colorMode == 2 && darkerGrass;

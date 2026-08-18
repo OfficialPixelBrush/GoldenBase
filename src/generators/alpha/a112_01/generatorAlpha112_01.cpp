@@ -488,7 +488,7 @@ void GeneratorAlpha112_01::SampleColumns(int32_t originX, int32_t originZ, int32
 				c.biome = BIOME_NONE;
 				c.temperature = snowCovered ? 0.0f : 1.0f;
 				c.humidity = 0.5f;
-				FinishColumnSurface(c, false, snowCovered);
+				FinishColumnSurface(c, false, snowCovered, snowMode);
 			}
 		}
 	}

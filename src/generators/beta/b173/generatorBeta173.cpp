@@ -528,7 +528,7 @@ void GeneratorBeta173::SampleColumns(int32_t originX, int32_t originZ, int32_t s
 				c.biome = biomeMap[climateIndex];
 				c.temperature = float(temperature[climateIndex]);
 				c.humidity = float(humidity[climateIndex]);
-				FinishColumnSurface(c, true, false);
+				FinishColumnSurface(c, true, false, snowMode);
 			}
 		}
 	}

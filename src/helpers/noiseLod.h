@@ -104,10 +104,23 @@ inline int8_t HeightFromDensityColumn(const double *col, int32_t yCount, double 
 	return int8_t(h);
 }
 
-inline void FinishColumnSurface(TileColumn &col, bool hasBiomes, bool snowWorld) {
+inline bool IsSnowyBiome(Biome biome) {
+	return biome == BIOME_TAIGA || biome == BIOME_TUNDRA || biome == BIOME_ICEDESERT;
+}
+
+// Preview surface after height is known. Ice is the *ocean surface* (any
+// seafloor depth) when the column is cold — matching Beta's
+// temp < 0.5 && y >= 63 water freeze. Snow uses the same height-adjusted
+// temperature as PseudoPopulateChunk.
+inline void FinishColumnSurface(TileColumn &col, bool hasBiomes, bool snowWorld, bool snowMode = false) {
+	const float heightAdjTemp = col.temperature - float(col.height - WATER_LEVEL) / 64.0f * 0.3f;
+	const bool frozenWater = snowWorld || col.temperature < 0.5f || IsSnowyBiome(col.biome);
+	const bool snowCover = snowMode && (snowWorld || heightAdjTemp < 0.5f || IsSnowyBiome(col.biome));
+
 	if (col.height < WATER_LEVEL) {
-		const bool ice = snowWorld || col.temperature < 0.5f;
-		col.surface = (ice && col.height >= WATER_LEVEL - 1) ? BLOCK_ICE : BLOCK_WATER_STILL;
+		col.surface = frozenWater ? BLOCK_ICE : BLOCK_WATER_STILL;
+	} else if (snowCover) {
+		col.surface = BLOCK_SNOW_LAYER;
 	} else if (hasBiomes) {
 		col.surface = GetTopBlock(col.biome);
 	} else {
