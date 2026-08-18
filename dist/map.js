@@ -1,7 +1,10 @@
 const WORKER_COUNT = navigator.hardwareConcurrency || 4;
+const WASM_JS_URL = 'GoldenBase.js';
 const workers = [];
 const queue = [];   // pending tile requests
 const free = [];    // indices of idle workers
+const workerBusy = [];
+const workerJobId = [];
 
 const BIOME_SWATCH = {
     //None:           '#8db360',
@@ -47,31 +50,64 @@ function createBiomeSwatch(containerId) {
     });
 }
 
+function bindWorker(idx, onReady) {
+    const w = new Worker('tile-worker.js');
+    workers[idx] = w;
+    workerBusy[idx] = false;
+    workerJobId[idx] = -1;
+    w.onmessage = (e) => {
+        if (e.data.type === 'ready') {
+            const seedEl = document.getElementById('seedValue');
+            const genEl = document.getElementById('genSelection');
+            if (seedEl && genEl) {
+                w.postMessage({
+                    type: 'updateGenAndSeed',
+                    seed: seedEl.value.trim(),
+                    genId: Number(genEl.value)
+                });
+            }
+            workerBusy[idx] = false;
+            if (!free.includes(idx)) free.push(idx);
+            onReady?.();
+            dispatch();
+            return;
+        }
+        if (e.data.type === 'tile') {
+            workerBusy[idx] = false;
+            workerJobId[idx] = -1;
+            const { id, bytes } = e.data;
+            pendingTiles[id]?.(bytes);
+            delete pendingTiles[id];
+            if (!free.includes(idx)) free.push(idx);
+            dispatch();
+        }
+    };
+    w.postMessage({ type: 'init', wasmJsUrl: WASM_JS_URL });
+}
+
 function initWorkers(wasmJsUrl, onReady) {
     let readyCount = 0;
     for (let i = 0; i < WORKER_COUNT; i++) {
-        const w = new Worker('tile-worker.js');
-        workers.push(w);
+        bindWorker(i, () => {
+            if (++readyCount === WORKER_COUNT) onReady();
+        });
+    }
+}
 
-        w.onmessage = (e) => {
-            if (e.data.type === 'ready') {
-                free.push(i);
-                if (++readyCount === WORKER_COUNT) onReady();
-                return;
-            }
-            if (e.data.type === 'tile') {
-                // Resolve the promise for this tile
-                const { id, bytes } = e.data;
-                pendingTiles[id]?.(bytes);
-                delete pendingTiles[id];
+function dropQueuedJobs() {
+    const jobs = queue.splice(0, queue.length);
+    for (const job of jobs) pendingTiles[job.id]?.(null);
+}
 
-                // Mark worker free, drain queue
-                free.push(i);
-                dispatch();
-            }
-        };
-
-        w.postMessage({ type: 'init', wasmJsUrl });
+function abortBusyWorkers() {
+    for (let i = 0; i < workers.length; i++) {
+        if (!workerBusy[i]) continue;
+        const id = workerJobId[i];
+        try { workers[i].terminate(); } catch (err) { /* already dead */ }
+        workerBusy[i] = false;
+        workerJobId[i] = -1;
+        if (id >= 0) pendingTiles[id]?.(null);
+        bindWorker(i);
     }
 }
 
@@ -99,18 +135,29 @@ function requestTile(x, y, z, tileSize) {
             if (bytes == null || genId !== currentGenId) resolve(null);
             else resolve(bytes);
         };
-        queue.push({ x, y, z, id, tileSize, options: getOptions() });
+        queue.push({ x, y, z, id, tileSize, options: getOptions(), epoch: genId });
         dispatch();
     });
 }
 
 function dispatch() {
     while (free.length > 0 && queue.length > 0) {
-        const workerIdx = free.pop();
         const job = queue.shift();
+        if (job.epoch !== currentGenId) {
+            pendingTiles[job.id]?.(null);
+            continue;
+        }
+        const workerIdx = free.pop();
+        workerBusy[workerIdx] = true;
+        workerJobId[workerIdx] = job.id;
         workers[workerIdx].postMessage({
             type: 'getTile',
-            ...job
+            x: job.x,
+            y: job.y,
+            z: job.z,
+            id: job.id,
+            tileSize: job.tileSize,
+            options: job.options
         });
     }
 }
@@ -549,11 +596,11 @@ window.addEventListener('load', () => {
 
             function cancelAllTiles() {
                 currentGenId++;
-                queue.length = 0;
-                const pending = pendingTiles;
-                for (const k of Object.keys(pending)) {
-                    const cb = pending[k];
-                    delete pending[k];
+                dropQueuedJobs();
+                abortBusyWorkers();
+                for (const k of Object.keys(pendingTiles)) {
+                    const cb = pendingTiles[k];
+                    delete pendingTiles[k];
                     cb(null);
                 }
             }
@@ -643,29 +690,47 @@ window.addEventListener('load', () => {
             document.getElementById('zPos').addEventListener('change', setPosition);
             
             map.on('move',      updateCenter);
-            map.on('zoomstart', cancelAllTiles);
-            map.on('zoomend',   regenTiles);
+            map.on('zoomstart', () => {
+                currentGenId++;
+                dropQueuedJobs();
+                abortBusyWorkers();
+            });
 
             const DynamicLayer = L.GridLayer.extend({
                 createTile: function(coords, done) {
                     const tile = document.createElement('canvas');
                     tile.width = scale;
                     tile.height = scale;
-                    // Defer done() so Leaflet can register the tile first. Never
-                    // tying done() to WASM completion is what froze zoom-in:
-                    // cancelled promises never resolved, so the layer stayed loading.
-                    setTimeout(() => done(null, tile), 0);
-
+                    const layer = this;
                     const tileKey = `${coords.x},${coords.y},${coords.z}`;
-                    requestTile(coords.x, coords.y, coords.z, scale).then((bytes) => {
-                        if (!bytes) return;
-                        if (tileKey !== `${coords.x},${coords.y},${coords.z}`) return;
-                        const ctx = tile.getContext('2d');
-                        const imageData = ctx.createImageData(scale, scale);
-                        imageData.data.set(bytes);
-                        ctx.putImageData(imageData, 0, 0);
-                    });
+                    let attempts = 0;
 
+                    const load = () => {
+                        requestTile(coords.x, coords.y, coords.z, scale).then((bytes) => {
+                            const stillHere = layer._map && layer._map.getZoom() === coords.z;
+                            if (bytes && tileKey === `${coords.x},${coords.y},${coords.z}`) {
+                                const ctx = tile.getContext('2d');
+                                const imageData = ctx.createImageData(scale, scale);
+                                imageData.data.set(bytes);
+                                ctx.putImageData(imageData, 0, 0);
+                                done(null, tile);
+                                return;
+                            }
+                            // Zoomed away: finish so Leaflet can drop this tile.
+                            if (!stillHere) {
+                                done(null, tile);
+                                return;
+                            }
+                            // Still the active zoom but this request was aborted
+                            // (worker recycle). Retry instead of showing a blank tile.
+                            if (++attempts < 8) {
+                                load();
+                                return;
+                            }
+                            done(null, tile);
+                        });
+                    };
+                    load();
                     return tile;
                 }
             });
@@ -734,6 +799,8 @@ window.addEventListener('load', () => {
                     minZoom: -8,  // matches map minZoom and MAX_ZOOM_OUT in main.cpp
                     maxZoom: 3,
                     noWrap: true,
+                    keepBuffer: 8,
+                    updateWhenZooming: false,
                 }).addTo(map);
 
                 // Put desired position here
