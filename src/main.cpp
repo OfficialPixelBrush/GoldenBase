@@ -18,11 +18,14 @@
 
 #define TILE_PIXELS 256
 // Negative zoomLevel zooms out: each step doubles the number of chunks per tile side.
-// MAX_ZOOM_OUT controls how far out we allow (e.g. 8 → 4096 chunks per side at level -8).
-#define MAX_ZOOM_OUT 8
+// MAX_ZOOM_OUT 18 → 256 * 2^18 = 67,108,864 blocks per tile, enough to see
+// the inf-20100227 stone-wall Far Lands at ±33,554,432 from spawn.
+#define MAX_ZOOM_OUT 18
 
 static uint8_t buffer[TILE_PIXELS * TILE_PIXELS * 4];
 static TileColumn columns[TILE_PIXELS * TILE_PIXELS];
+static int8_t tileHeights[TILE_PIXELS * TILE_PIXELS];
+static uint8_t tileLiquid[TILE_PIXELS * TILE_PIXELS];
 // The output tile is always TILE_PIXELS square, regardless of zoom level.
 
 static uint8_t clamp(double v) {
@@ -72,6 +75,102 @@ Int3 HexToInt3(int32_t value) {
         (value >> 8) & 0xFF,
         value & 0xFF
     };
+}
+
+Int3 LerpInt3(Int3 a, Int3 b, float t) {
+    if (t < 0.0f)
+        t = 0.0f;
+    if (t > 1.0f)
+        t = 1.0f;
+    return Int3{
+        FloatToInt8(Int8ToFloat(a.x) + (Int8ToFloat(b.x) - Int8ToFloat(a.x)) * t),
+        FloatToInt8(Int8ToFloat(a.y) + (Int8ToFloat(b.y) - Int8ToFloat(a.y)) * t),
+        FloatToInt8(Int8ToFloat(a.z) + (Int8ToFloat(b.z) - Int8ToFloat(a.z)) * t)
+    };
+}
+
+// Hypsometric (elevation) tint for the topographic map mode.
+Int3 TopographicColor(int height, bool water, bool ice) {
+    if (ice)
+        return HexToInt3(0xc5e8f7);
+    if (water)
+        return HexToInt3(0x3d7ea6);
+
+    struct Stop {
+        int y;
+        int32_t hex;
+    };
+    static const Stop stops[] = {
+        {0,   0x0a2850},
+        {32,  0x1d5a78},
+        {62,  0xd4c882},
+        {64,  0x3d8c37},
+        {72,  0x6bb34a},
+        {84,  0xb8c74a},
+        {96,  0xc89646},
+        {108, 0xa07850},
+        {116, 0x8a7a70},
+        {127, 0xf2f0ec},
+    };
+    const int n = int(sizeof(stops) / sizeof(stops[0]));
+    if (height <= stops[0].y)
+        return HexToInt3(stops[0].hex);
+    if (height >= stops[n - 1].y)
+        return HexToInt3(stops[n - 1].hex);
+    for (int i = 1; i < n; ++i) {
+        if (height <= stops[i].y) {
+            const float t = float(height - stops[i - 1].y) / float(stops[i].y - stops[i - 1].y);
+            return LerpInt3(HexToInt3(stops[i - 1].hex), HexToInt3(stops[i].hex), t);
+        }
+    }
+    return HexToInt3(stops[n - 1].hex);
+}
+
+void ApplyTopoHillshade() {
+    const float lx = -0.57735027f;
+    const float ly = 0.57735027f;
+    const float lz = -0.57735027f;
+    for (int z = 0; z < TILE_PIXELS; ++z) {
+        const int z0 = z > 0 ? z - 1 : z;
+        const int z1 = z < TILE_PIXELS - 1 ? z + 1 : z;
+        for (int x = 0; x < TILE_PIXELS; ++x) {
+            const int i = z * TILE_PIXELS + x;
+            const int x0 = x > 0 ? x - 1 : x;
+            const int x1 = x < TILE_PIXELS - 1 ? x + 1 : x;
+            float dzdx = float(tileHeights[z * TILE_PIXELS + x1] - tileHeights[z * TILE_PIXELS + x0]);
+            float dzdz = float(tileHeights[z1 * TILE_PIXELS + x] - tileHeights[z0 * TILE_PIXELS + x]);
+            if (x1 != x0)
+                dzdx /= float(x1 - x0);
+            if (z1 != z0)
+                dzdz /= float(z1 - z0);
+            const float nx = -dzdx;
+            const float ny = 1.8f;
+            const float nz = -dzdz;
+            const float invLen = 1.0f / sqrtf(nx * nx + ny * ny + nz * nz);
+            float shade = (nx * lx + ny * ly + nz * lz) * invLen;
+            shade = 0.42f + 0.58f * shade;
+            if (shade < 0.22f)
+                shade = 0.22f;
+            if (tileLiquid[i])
+                shade = 0.82f + 0.18f * shade;
+            const int idx = i * 4;
+            buffer[idx + 0] = clamp(float(buffer[idx + 0]) * shade);
+            buffer[idx + 1] = clamp(float(buffer[idx + 1]) * shade);
+            buffer[idx + 2] = clamp(float(buffer[idx + 2]) * shade);
+        }
+    }
+}
+
+Int3 ColorModeTint(int colorMode, Biome biome, float temperature, float humidity) {
+    if (colorMode == 2)
+        return GetGrassColor(temperature, humidity);
+    if (colorMode == 1)
+        return GetBiomeColor(biome);
+    return GetBiomeColor(BIOME_NONE);
+}
+
+bool IsWaterOrIce(int block_id) {
+    return block_id == BLOCK_WATER_STILL || block_id == BLOCK_WATER_FLOWING || block_id == BLOCK_ICE;
 }
 
 Int3 GetBlockColor(int block_id, Int3 biomeColor, bool darkerGrass) {
@@ -138,6 +237,21 @@ extern "C" {
     }
 
     EMSCRIPTEN_KEEPALIVE
+    int getMaxZoomOut() {
+        return MAX_ZOOM_OUT;
+    }
+
+    EMSCRIPTEN_KEEPALIVE
+    int getBiomeAt(int32_t blockX, int32_t blockZ) {
+        if (!generatorPtr)
+            return int(BIOME_NONE);
+        TileColumn col;
+        generatorPtr->SetDetailLevel(1);
+        generatorPtr->SampleColumns(blockX, blockZ, 1, 1, &col);
+        return int(col.biome);
+    }
+
+    EMSCRIPTEN_KEEPALIVE
     void UpdateGenAndSeed(const char* seed_cstr, int genId = GEN_BETA_BETA173) {
         std::string seedString = std::string(seed_cstr);
         currentSeed = 0;
@@ -200,11 +314,12 @@ extern "C" {
         4   -> Show Water, if water should be rendered
         8   -> Snow Mode, snow should be rendered
         16  -> Snow World, if world is snow world
-        32  -> Accurate Grass Colors, that match Beta Minecraft
-        64  -> x
-        128 -> x
-        256 -> x
+        32  -> Color mode biome (simplified distinct biome colors)
+        64  -> Hillshade (slope shading; does not change the color mode)
+        128 -> Color mode accurate (vanilla temp/humidity grass tint)
+        256 -> Color mode topology (hypsometric elevation tint)
         ...
+        Color mode none: neither 32, 128, nor 256 (plain pre-biome green)
     */
 
     EMSCRIPTEN_KEEPALIVE
@@ -214,7 +329,10 @@ extern "C" {
         bool showWater      = (options &  4) > 0;
         bool snowMode       = (options &  8) > 0;
         bool snowWorld      = (options & 16) > 0;
-        bool tempHumiColor  = (options & 32) > 0;
+        bool colorBiome     = (options & 32) > 0;
+        bool hillshade      = (options & 64) > 0;
+        bool colorAccurate  = (options & 128) > 0;
+        bool colorTopology  = (options & 256) > 0;
 
         // ── Zoom-level semantics ──────────────────────────────────────────────
         // zoomLevel > 0  : zoomed IN  — fewer chunks, each block drawn at scale×scale pixels
@@ -262,34 +380,42 @@ extern "C" {
         if (auto* alphaGen = dynamic_cast<GeneratorAlpha112_01*>(gen))
             alphaGen->snowCovered = snowWorld;
         bool darkerGrass = dynamic_cast<GeneratorBeta173*>(gen) != nullptr;
+        const int colorMode = colorTopology ? 3 : (colorAccurate ? 2 : (colorBiome ? 1 : 0));
 
         auto writePixel = [&](int outX, int outZ, int topY, int surface_block_id, Biome biome, float temperature,
                               float humidity) {
+            if (!showWater && IsWaterOrIce(surface_block_id))
+                surface_block_id = int(GetFillerBlock(biome));
+            const bool isWater = surface_block_id == BLOCK_WATER_STILL || surface_block_id == BLOCK_WATER_FLOWING;
+            const bool isIce = surface_block_id == BLOCK_ICE;
             float fr, fg, fb;
-            if (showWater && surface_block_id == BLOCK_WATER_STILL) {
+            const bool showLiquid = showWater && (isWater || isIce);
+            if (colorMode == 3 && !blockColors && !showLiquid) {
+                Int3 topo = TopographicColor(topY, false, false);
+                fr = Int8ToFloat(topo.x);
+                fg = Int8ToFloat(topo.y);
+                fb = Int8ToFloat(topo.z);
+            } else if (showLiquid && isWater) {
                 fr = 0.0f; fg = 0.0f; fb = 1.0f;
-            } else if (showWater && surface_block_id == BLOCK_ICE) {
+            } else if (showLiquid && isIce) {
                 fr = 0.5f; fg = 0.8f; fb = 1.0f;
             } else {
-                Int3 biomeColor;
-                bool renderDarkerGrass = tempHumiColor && darkerGrass;
-                if (renderDarkerGrass)
-                    biomeColor = GetGrassColor(temperature, humidity);
-                else
-                    biomeColor = GetBiomeColor(biome);
+                Int3 tint = ColorModeTint(colorMode, biome, temperature, humidity);
+                const bool accurateBeta = colorMode == 2 && darkerGrass;
                 if (blockColors) {
-                    Int3 blockColor = GetBlockColor(surface_block_id, biomeColor, renderDarkerGrass);
+                    Int3 blockColor = GetBlockColor(surface_block_id, tint, accurateBeta);
                     fr = Int8ToFloat(blockColor.x);
                     fg = Int8ToFloat(blockColor.y);
                     fb = Int8ToFloat(blockColor.z);
                 } else {
-                    biomeColor = renderDarkerGrass ? MultiplyColor(biomeColor, HexToInt3(0x929292)) : biomeColor;
-                    fr = Int8ToFloat(biomeColor.x);
-                    fg = Int8ToFloat(biomeColor.y);
-                    fb = Int8ToFloat(biomeColor.z);
+                    if (accurateBeta)
+                        tint = MultiplyColor(tint, HexToInt3(0x929292));
+                    fr = Int8ToFloat(tint.x);
+                    fg = Int8ToFloat(tint.y);
+                    fb = Int8ToFloat(tint.z);
                 }
             }
-            if (heightmap) {
+            if (heightmap && !hillshade) {
                 float heightFloat = (HeightToFloat(topY) * 1.5f);
                 float gamma = 0.9f;
                 float shadedHeight = powf(heightFloat, gamma);
@@ -300,40 +426,52 @@ extern "C" {
             uint8_t r = FloatToInt8(fr);
             uint8_t g = FloatToInt8(fg);
             uint8_t b = FloatToInt8(fb);
+            const uint8_t liquid = showLiquid ? 1 : 0;
+            const int8_t storedHeight = int8_t(std::max(0, std::min(127, topY)));
             if (scale > 1) {
                 int originX = outX * scale;
                 int originZ = outZ * scale;
                 for (int sy = 0; sy < scale; sy++) {
                     for (int sx = 0; sx < scale; sx++) {
-                        int idx = ((originZ + sy) * tileWidth + (originX + sx)) * 4;
+                        const int pix = (originZ + sy) * tileWidth + (originX + sx);
+                        int idx = pix * 4;
                         buffer[idx + 0] = r;
                         buffer[idx + 1] = g;
                         buffer[idx + 2] = b;
                         buffer[idx + 3] = 255;
+                        tileHeights[pix] = storedHeight;
+                        tileLiquid[pix] = liquid;
                     }
                 }
             } else {
-                int idx = (outZ * tileWidth + outX) * 4;
+                const int pix = outZ * tileWidth + outX;
+                int idx = pix * 4;
                 buffer[idx + 0] = r;
                 buffer[idx + 1] = g;
                 buffer[idx + 2] = b;
                 buffer[idx + 3] = 255;
+                tileHeights[pix] = storedHeight;
+                tileLiquid[pix] = liquid;
             }
         };
 
         if (stride > 1) {
-            const int32_t originX = x * batchSize * CHUNK_WIDTH;
-            const int32_t originZ = z * batchSize * CHUNK_WIDTH;
+            const int32_t originX = int32_t(int64_t(x) * int64_t(batchSize) * CHUNK_WIDTH);
+            const int32_t originZ = int32_t(int64_t(z) * int64_t(batchSize) * CHUNK_WIDTH);
             gen->SampleColumns(originX, originZ, TILE_PIXELS, stride, columns);
             for (int pz = 0; pz < TILE_PIXELS; ++pz) {
                 for (int px = 0; px < TILE_PIXELS; ++px) {
                     const TileColumn &col = columns[pz * TILE_PIXELS + px];
                     int surface = col.surface;
+                    if (!showWater && IsWaterOrIce(surface))
+                        surface = GetFillerBlock(col.biome);
                     if (blockColors && surface == BLOCK_AIR)
                         surface = BLOCK_STONE;
                     writePixel(px, pz, col.height, surface, col.biome, col.temperature, col.humidity);
                 }
             }
+            if (hillshade)
+                ApplyTopoHillshade();
             return buffer;
         }
 
@@ -350,12 +488,24 @@ extern "C" {
                         int cover = chunk.GetBlockType(Int3{px, topY, pz});
                         int below = topY > 0 ? chunk.GetBlockType(Int3{px, topY - 1, pz}) : BLOCK_AIR;
                         int surface_block_id = cover;
-                        const bool coverLiquid = cover == BLOCK_WATER_STILL || cover == BLOCK_ICE;
-                        const bool belowLiquid = below == BLOCK_WATER_STILL || below == BLOCK_ICE;
+                        const bool coverLiquid = IsWaterOrIce(cover);
+                        const bool belowLiquid = IsWaterOrIce(below);
                         if (showWater && (coverLiquid || belowLiquid)) {
                             surface_block_id = coverLiquid ? cover : below;
-                        } else if (blockColors) {
-                            surface_block_id = below;
+                        } else {
+                            surface_block_id = BLOCK_AIR;
+                            for (int y = topY; y >= 0; --y) {
+                                const int b = chunk.GetBlockType(Int3{px, y, pz});
+                                if (b == BLOCK_AIR || IsWaterOrIce(b))
+                                    continue;
+                                if (b == BLOCK_SNOW_LAYER && !snowMode)
+                                    continue;
+                                surface_block_id = b;
+                                topY = y;
+                                break;
+                            }
+                            if (surface_block_id == BLOCK_AIR)
+                                surface_block_id = int(GetFillerBlock(chunk.GetBiome(px, pz)));
                         }
                         int outX = bx * CHUNK_WIDTH + px;
                         int outZ = bz * CHUNK_WIDTH + pz;
@@ -366,6 +516,8 @@ extern "C" {
                 }
             }
         }
+        if (hillshade)
+            ApplyTopoHillshade();
         return buffer;
     }
 }

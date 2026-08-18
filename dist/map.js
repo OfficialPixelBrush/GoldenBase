@@ -6,48 +6,25 @@ const free = [];    // indices of idle workers
 const workerBusy = [];
 const workerJobId = [];
 
-const BIOME_SWATCH = {
-    //None:           '#8db360',
-    Plains:         '#8db360',
-    Rainforest:     '#537b09',
-    Swampland:      '#07f9b2',
-    SeasonalForest: '#2d8e49',
-    Forest:         '#056621',
-    Savanna:        '#bdb25f',
-    Shrubland:      '#b5db88',
-    Desert:         '#fa9418',
-    //Hell:           '#ff0000',
-    //Sky:            '#4ee031',
-    Taiga:          '#0b6659',
-    //IceDesert:      '#c4d339',
-    Tundra:         '#ffffff',
-    //Invalid:              '#ff00ff'
-};
+const BIOME_INFO = [
+    { name: 'None', color: '#8db360' },
+    { name: 'Rainforest', color: '#537b09' },
+    { name: 'Swampland', color: '#07f9b2' },
+    { name: 'Seasonal Forest', color: '#2d8e49' },
+    { name: 'Forest', color: '#056621' },
+    { name: 'Savanna', color: '#bdb25f' },
+    { name: 'Shrubland', color: '#b5db88' },
+    { name: 'Taiga', color: '#0b6659' },
+    { name: 'Desert', color: '#fa9418' },
+    { name: 'Plains', color: '#8db360' },
+    { name: 'Ice Desert', color: '#c4d339' },
+    { name: 'Tundra', color: '#ffffff' },
+    { name: 'Hell', color: '#ff0000' },
+    { name: 'Sky', color: '#4ee031' },
+];
 
-function createBiomeSwatch(containerId) {
-    const container = document.getElementById(containerId);
-
-    Object.entries(BIOME_SWATCH).forEach(([name, color]) => {
-        const row = document.createElement('div');
-        row.style.display = 'flex';
-        row.style.alignItems = 'center';
-        row.style.marginBottom = '4px';
-
-        const swatch = document.createElement('div');
-        swatch.style.width = '16px';
-        swatch.style.height = '16px';
-        swatch.style.background = color;
-        swatch.style.border = '1px solid #444';
-        swatch.style.marginRight = '8px';
-
-        const label = document.createElement('code');
-        label.textContent = `${name}`;
-
-        row.appendChild(swatch);
-        row.appendChild(label);
-
-        container.appendChild(row);
-    });
+function biomeInfo(id) {
+    return BIOME_INFO[id] || { name: 'Unknown', color: '#ff00ff' };
 }
 
 function bindWorker(idx, onReady) {
@@ -117,12 +94,17 @@ let currentGenId = 0;
 
 function getOptions() {
     let opt_value = 0;
-    if (document.getElementById('check_heightmap').checked) opt_value |= 1 << 0;
-    if (document.getElementById('check_blockcolors').checked) opt_value |= 1 << 1;
+    const viewMode = document.getElementById('viewMode')?.value || 'topo';
+    const colorMode = document.getElementById('colorMode')?.value || 'biome';
+    if (viewMode === 'heightmap') opt_value |= 1 << 0;
+    if (document.getElementById('check_blockcolors').checked && colorMode !== 'topology') opt_value |= 1 << 1;
     if (document.getElementById('check_water').checked) opt_value |= 1 << 2;
     if (document.getElementById('check_snow_mode').checked) opt_value |= 1 << 3;
     if (document.getElementById('check_snow_world').checked) opt_value |= 1 << 4;
-    if (document.getElementById('check_temp_humi_colors').checked) opt_value |= 1 << 5;
+    if (colorMode === 'biome') opt_value |= 1 << 5;
+    if (viewMode === 'topo') opt_value |= 1 << 6;
+    if (colorMode === 'accurate') opt_value |= 1 << 7;
+    if (colorMode === 'topology') opt_value |= 1 << 8;
     return opt_value;
 }
 
@@ -214,8 +196,8 @@ const GridOverlay = L.GridLayer.extend({
             ctx.stroke();
         }
 
-        // region grid
-        if (showRegionGrid) {
+        // region grid (skip when a region is smaller than 2px — would paint solid)
+        if (showRegionGrid && regionPx >= 32) {
             ctx.strokeStyle = "#ffffff99";
             ctx.lineWidth = 2;
 
@@ -288,12 +270,14 @@ const SlimeOverlay = L.GridLayer.extend({
         tile.height = size.y;
 
         const ctx = tile.getContext('2d');
-        const seed = document.getElementById('seedValue').value.trim();
+        const seed = parseSeed(document.getElementById('seedValue').value);
 
         const tileZoom = 0;
         const zoomDiff = tileZoom - coords.z;
-        // Each tile at zoom 0 is 64px = 4 chunks wide, so multiply by 4
         const chunksPerTile = Math.pow(2, zoomDiff) * (size.x / 16);
+        // At deep zoom-out a tile covers millions of chunks; skip rather than hang.
+        if (chunksPerTile > 128)
+            return tile;
 
         const baseChunkX = coords.x * chunksPerTile;
         const baseChunkZ = coords.y * chunksPerTile;
@@ -322,8 +306,110 @@ const SlimeOverlay = L.GridLayer.extend({
     }
 });
 
-// Mirrors Java's String.hashCode()
-// Uses |0 at each step to replicate 32-bit signed overflow
+// Classic Far Lands (inf-20100327+): finest Perlin octave samples
+// (world/4)*684.412, overflowing a Java int at ±12,550,821.
+// Infdev 20100227–20100325: solid stone wall at ±33,554,432 (2^25).
+const FARLANDS_EXTENT = 2147483647;
+
+function farlandsThreshold(genId) {
+    if (!genId)
+        return 0;
+    if (genId === 1)
+        return 33554432;
+    return 12550821;
+}
+
+// Overlays follow the generator last applied with Update Gen, not the dropdown.
+let appliedGenId = 9;
+
+function fillWorldRect(ctx, tileX0, tileZ0, bpp, tilePx, wx0, wz0, wx1, wz1) {
+    const tileW = tilePx * bpp;
+    const ix0 = Math.max(wx0, tileX0);
+    const iz0 = Math.max(wz0, tileZ0);
+    const ix1 = Math.min(wx1, tileX0 + tileW);
+    const iz1 = Math.min(wz1, tileZ0 + tileW);
+    if (ix1 <= ix0 || iz1 <= iz0)
+        return;
+    ctx.fillRect(
+        (ix0 - tileX0) / bpp,
+        (iz0 - tileZ0) / bpp,
+        (ix1 - ix0) / bpp,
+        (iz1 - iz0) / bpp
+    );
+}
+
+const FarlandsOverlay = L.GridLayer.extend({
+    createTile: function(coords) {
+        const tile = document.createElement('canvas');
+        const size = this.getTileSize();
+        tile.width = size.x;
+        tile.height = size.y;
+
+        const F = farlandsThreshold(appliedGenId);
+        if (!F)
+            return tile;
+
+        const bpp = Math.pow(2, -coords.z);
+        const tileX0 = coords.x * size.x * bpp;
+        const tileZ0 = coords.y * size.y * bpp;
+        const ctx = tile.getContext('2d');
+        ctx.globalAlpha = 0.38;
+
+        // Edge Far Lands (one axis overflowed): red
+        ctx.fillStyle = '#ff2200';
+        fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, F, -F, FARLANDS_EXTENT, F);
+        fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, -FARLANDS_EXTENT, -F, -F, F);
+        fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, -F, F, F, FARLANDS_EXTENT);
+        fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, -F, -FARLANDS_EXTENT, F, -F);
+
+        // Corner Far Lands (both axes overflowed): orange
+        ctx.fillStyle = '#ff9900';
+        fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, F, F, FARLANDS_EXTENT, FARLANDS_EXTENT);
+        fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, F, -FARLANDS_EXTENT, FARLANDS_EXTENT, -F);
+        fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, -FARLANDS_EXTENT, F, -F, FARLANDS_EXTENT);
+        fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, -FARLANDS_EXTENT, -FARLANDS_EXTENT, -F, -F);
+
+        return tile;
+    }
+});
+
+// Hard world boundary at ±32,000,000, added after Infdev 20100313.
+// Terrain past this point is non-solid fake chunks (air with leftover textures).
+function worldBoundaryThreshold(genId) {
+    if (genId >= 2)
+        return 32000000;
+    return 0;
+}
+
+const WorldBoundaryOverlay = L.GridLayer.extend({
+    createTile: function(coords) {
+        const tile = document.createElement('canvas');
+        const size = this.getTileSize();
+        tile.width = size.x;
+        tile.height = size.y;
+
+        const B = worldBoundaryThreshold(appliedGenId);
+        if (!B)
+            return tile;
+
+        const bpp = Math.pow(2, -coords.z);
+        const tileX0 = coords.x * size.x * bpp;
+        const tileZ0 = coords.y * size.y * bpp;
+        const ctx = tile.getContext('2d');
+        ctx.globalAlpha = 0.55;
+        ctx.fillStyle = '#000000';
+
+        // Everything outside the ±32M square
+        fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, B, -FARLANDS_EXTENT, FARLANDS_EXTENT, FARLANDS_EXTENT);
+        fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, -FARLANDS_EXTENT, -FARLANDS_EXTENT, -B, FARLANDS_EXTENT);
+        fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, -B, B, B, FARLANDS_EXTENT);
+        fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, -B, -FARLANDS_EXTENT, B, -B);
+
+        return tile;
+    }
+});
+
+// Matches src/java/javaMath.h HashCode() / Java String.hashCode()
 function javaStringHashCode(str) {
     let h = 0;
     for (let i = 0; i < str.length; i++) {
@@ -334,12 +420,74 @@ function javaStringHashCode(str) {
 
 function parseSeed(raw) {
     const trimmed = raw.trim();
-    // If it parses as a plain integer, use it directly
-    if (/^-?\d+$/.test(trimmed)) {
-        return trimmed;   // keep as string for BigInt() downstream
+    // Same numeric check as UpdateGenAndSeed in main.cpp
+    if (/^[+-]?\d+$/.test(trimmed)) {
+        return trimmed;
     }
-    // Otherwise hash it like Java does
     return String(javaStringHashCode(trimmed));
+}
+
+function syncBlockColorsForColorMode() {
+    const topology = document.getElementById('colorMode')?.value === 'topology';
+    const cb = document.getElementById('check_blockcolors');
+    const label = document.getElementById('check_blockcolors_label');
+    if (!cb)
+        return;
+    cb.disabled = topology;
+    if (label)
+        label.style.opacity = topology ? '0.4' : '';
+}
+
+function generatorHasBiomes(genId) {
+    return genId >= 8;
+}
+
+function applyShareParams() {
+    const p = new URLSearchParams(window.location.search);
+    const setVal = (id, key) => {
+        if (p.has(key))
+            document.getElementById(id).value = p.get(key);
+    };
+    const setCheck = (id, key) => {
+        if (p.has(key))
+            document.getElementById(id).checked = p.get(key) === '1';
+    };
+    setVal('seedValue', 'seed');
+    if (p.has('gen')) {
+        const gen = p.get('gen');
+        const genEl = document.getElementById('genSelection');
+        if (genEl && [...genEl.options].some((o) => o.value === gen))
+            genEl.value = gen;
+    }
+    if (p.has('shade')) {
+        const v = p.get('shade');
+        if (['none', 'heightmap', 'topo'].includes(v))
+            document.getElementById('viewMode').value = v;
+    }
+    if (p.has('color')) {
+        const v = p.get('color');
+        if (['none', 'biome', 'accurate', 'topology'].includes(v))
+            document.getElementById('colorMode').value = v;
+    }
+    setCheck('check_blockcolors', 'blocks');
+    setCheck('check_water', 'water');
+    setCheck('check_snow_mode', 'snow');
+    setCheck('check_snow_world', 'snowWorld');
+    setCheck('check_slime_chunks', 'slime');
+    setCheck('check_farlands', 'farlands');
+    setCheck('check_world_boundary', 'boundary');
+    setCheck('check_chunk_grid', 'chunks');
+    setCheck('check_region_grid', 'regions');
+    const x = p.has('x') ? Number(p.get('x')) : 0;
+    const z = p.has('z') ? Number(p.get('z')) : 0;
+    const zoom = p.has('zoom') ? Number(p.get('zoom')) : 0;
+    const xPos = document.getElementById('xPos');
+    const zPos = document.getElementById('zPos');
+    if (xPos)
+        xPos.value = String(x);
+    if (zPos)
+        zPos.value = String(z);
+    return { x, z, zoom, fromUrl: p.has('x') || p.has('z') || p.has('zoom') || p.has('seed') || p.has('gen') };
 }
 
 let mapCenter = { x: 0, y: 0 };
@@ -349,14 +497,22 @@ window.addEventListener('load', () => {
       onRuntimeInitialized: function() {
             const getTileSize = this.cwrap('getTileSize', 'number', []);
             const scale = getTileSize(); // pixels per tile; 1:1 is 1px per block
+            let maxZoomOut = 10;
+            if (typeof this._getMaxZoomOut === 'function')
+                maxZoomOut = this._getMaxZoomOut();
+            const minZoom = -maxZoomOut;
             const Module = this;
             window.Module = Module;
+            const updateGenAndSeedMain = this.cwrap('UpdateGenAndSeed', 'void', ['string', 'number']);
+            const getBiomeAt = (typeof this._getBiomeAt === 'function')
+                ? this.cwrap('getBiomeAt', 'number', ['number', 'number'])
+                : null;
 
             const tileZoom = 0; // your tiles exist only at this zoom
 
             const map = L.map('map', {
                 crs: L.CRS.Simple,
-                minZoom: -8,  // allows zooming out 8 levels (matches MAX_ZOOM_OUT in main.cpp)
+                minZoom: minZoom,
                 maxZoom: 2,
                 noWrap: true,
                 keepBuffer: 10   // default is 2
@@ -434,6 +590,7 @@ window.addEventListener('load', () => {
                             <td>
                                 <code id="coords"></code><br/>
                                 <code id="bigCoords"></code>
+                                <code id="biomeCoords"></code><br/>
                             </td>
                             <td>
                                 <input type="number" id="xPos" placeholder="x" value="0" style="width: 20%">
@@ -486,39 +643,48 @@ window.addEventListener('load', () => {
                         </tr>
 
                         <tr>
-                            <td style="vertical-align: top;">
+                            <td style="vertical-align: top;" colspan="2">
                                 <details>
                                     <summary>Visualizer Settings</summary>
-                                    <input type="checkbox" id="check_heightmap" checked>
-                                    <label for="check_heightmap">Heightmap</label><br>
+                                    <label for="viewMode">Shading</label>
+                                    <select id="viewMode">
+                                        <option value="none">None</option>
+                                        <option value="heightmap">Heightmap</option>
+                                        <option value="topo" selected>Hillshade</option>
+                                    </select><br>
+
+                                    <label for="colorMode">Coloration</label>
+                                    <select id="colorMode">
+                                        <option value="none">None</option>
+                                        <option value="biome" selected>Biome Colors</option>
+                                        <option value="accurate">Accurate Colors</option>
+                                        <option value="topology">Topology</option>
+                                    </select><br>
 
                                     <input type="checkbox" id="check_blockcolors" checked>
-                                    <label for="check_blockcolors">Block colors</label><br><br>
+                                    <label for="check_blockcolors" id="check_blockcolors_label">Block colors</label><br>
 
                                     <input type="checkbox" id="check_water" checked>
-                                    <label for="check_water">Show Water</label><br>
+                                    <label for="check_water">Show Water/Ice</label><br>
 
                                     <input type="checkbox" id="check_snow_mode" checked>
                                     <label for="check_snow_mode">Show surface snow</label><br>
 
-                                    <input type="checkbox" id="check_temp_humi_colors">
-                                    <label for="check_temp_humi_colors">Accurate Grass Colors</label><br><br>
-
+                                    <label for="viewMode">Overlays</label><br>
                                     <input type="checkbox" id="check_slime_chunks">
-                                    <label for="check_slime_chunks" id="check_slime_chunks_checkmark">Show Slime Chunks (doesn't work for text seeds yet)</label><br>
+                                    <label for="check_slime_chunks" id="check_slime_chunks_checkmark">Slime Chunks</label><br>
+
+                                    <input type="checkbox" id="check_farlands" checked>
+                                    <label for="check_farlands" id="check_farlands_label">Far Lands</label><br>
+
+                                    <input type="checkbox" id="check_world_boundary" checked>
+                                    <label for="check_world_boundary" id="check_world_boundary_label">Non-solid</label><br>
 
                                     <input type="checkbox" id="check_chunk_grid">
-                                    <label for="check_chunk_grid">Show Chunk Grid</label><br>
+                                    <label for="check_chunk_grid">Chunk Grid</label><br>
 
                                     <input type="checkbox" id="check_region_grid" checked>
-                                    <label for="check_region_grid">Show Region Grid</label><br>
-                                </details>
-                            </td>
-
-                            <td style="vertical-align: top;">
-                                <details>
-                                    <summary>Biome Colors (a1.2.0+)</summary>
-                                    <div id="biomeSwatches"></div>
+                                    <label for="check_region_grid">Region Grid</label><br>
                                 </details>
                             </td>
                         </tr>
@@ -530,7 +696,9 @@ window.addEventListener('load', () => {
             return div;
         };
             infoControl.addTo(map);
-            createBiomeSwatch('biomeSwatches');
+            const share = applyShareParams();
+            appliedGenId = Number(document.getElementById('genSelection').value) || 9;
+            syncBlockColorsForColorMode();
 
             function checkIfSnowWorld(genId) {
                 if (genId == 7) {
@@ -553,8 +721,8 @@ window.addEventListener('load', () => {
                     updateSlimeLayer();
                 }
             }
-            checkIfSnowWorld(9);
-            checkIfSlimeChunks(9);
+            checkIfSnowWorld(appliedGenId);
+            checkIfSlimeChunks(appliedGenId);
             document
                 .getElementById('genSelection')
                 .addEventListener('change', (e) => {
@@ -581,6 +749,54 @@ window.addEventListener('load', () => {
                 const blockPosZ = mapCenter.y * scale;
                 document.getElementById('coords').textContent = `Center: ${(blockPosX).toFixed(2)}, ${(blockPosZ).toFixed(2)}`;
                 document.getElementById('bigCoords').textContent = `Cnk: ${((blockPosX/16)-0.5).toFixed(0)}, ${((blockPosZ/16)-0.5).toFixed(0)} / Rgn: ${((blockPosX/512)-0.5).toFixed(0)}, ${((blockPosZ/512)-0.5).toFixed(0)}`;
+                const biomeEl = document.getElementById('biomeCoords');
+                if (biomeEl) {
+                    if (!generatorHasBiomes(appliedGenId)) {
+                        biomeEl.style.display = 'none';
+                        biomeEl.textContent = '';
+                    } else {
+                        biomeEl.style.display = '';
+                        if (getBiomeAt) {
+                            const info = biomeInfo(getBiomeAt(Math.floor(blockPosX), Math.floor(blockPosZ)));
+                            biomeEl.innerHTML = `Biome: <span style="display:inline-block;width:10px;height:10px;background:${info.color};border:1px solid #888;vertical-align:middle;margin-right:4px;"></span>${info.name}`;
+                        } else {
+                            biomeEl.textContent = 'Biome: —';
+                        }
+                    }
+                }
+            }
+
+            function writeShareParams() {
+                const p = new URLSearchParams();
+                p.set('seed', document.getElementById('seedValue')?.value.trim() ?? '');
+                p.set('gen', document.getElementById('genSelection')?.value ?? '9');
+                const center = map.getCenter();
+                const point = map.project(center, tileZoom);
+                p.set('x', String(Math.round(point.x)));
+                p.set('z', String(Math.round(point.y)));
+                p.set('zoom', String(map.getZoom()));
+                p.set('shade', document.getElementById('viewMode')?.value ?? 'topo');
+                p.set('color', document.getElementById('colorMode')?.value ?? 'biome');
+                const flag = (id) => document.getElementById(id)?.checked ? '1' : '0';
+                p.set('blocks', flag('check_blockcolors'));
+                p.set('water', flag('check_water'));
+                p.set('snow', flag('check_snow_mode'));
+                p.set('snowWorld', flag('check_snow_world'));
+                p.set('slime', flag('check_slime_chunks'));
+                p.set('farlands', flag('check_farlands'));
+                p.set('boundary', flag('check_world_boundary'));
+                p.set('chunks', flag('check_chunk_grid'));
+                p.set('regions', flag('check_region_grid'));
+                const qs = p.toString();
+                const url = `${location.pathname}${qs ? '?' + qs : ''}${location.hash}`;
+                if (`${location.pathname}${location.search}${location.hash}` !== url)
+                    history.replaceState(null, '', url);
+            }
+
+            let shareTimer = 0;
+            function scheduleShareParams() {
+                clearTimeout(shareTimer);
+                shareTimer = setTimeout(writeShareParams, 200);
             }
 
             window.setPosition = function() {
@@ -647,7 +863,7 @@ window.addEventListener('load', () => {
             const slimeLayer = new SlimeOverlay({
                 pane: 'gridPane',           // sits above tiles, below UI
                 tileSize: scale,
-                minZoom: -8,
+                minZoom: minZoom,
                 maxZoom: 2,
                 noWrap: true,
                 opacity: 1,
@@ -665,24 +881,118 @@ window.addEventListener('load', () => {
 
             document
                 .getElementById('check_slime_chunks')
-                .addEventListener('change', updateSlimeLayer);
+                .addEventListener('change', () => {
+                    updateSlimeLayer();
+                    writeShareParams();
+                });
+            updateSlimeLayer();
+
+            const farlandsLayer = new FarlandsOverlay({
+                pane: 'gridPane',
+                tileSize: scale,
+                minZoom: minZoom,
+                maxZoom: 2,
+                noWrap: true,
+                opacity: 1,
+            });
+
+            function updateFarlandsLayer() {
+                const show = document.getElementById('check_farlands')?.checked;
+                if (show) {
+                    if (!map.hasLayer(farlandsLayer)) farlandsLayer.addTo(map);
+                    else farlandsLayer.redraw();
+                } else {
+                    if (map.hasLayer(farlandsLayer)) map.removeLayer(farlandsLayer);
+                }
+            }
+
+            function checkIfFarlands(genId) {
+                const checkbox = document.getElementById('check_farlands');
+                const label = document.getElementById('check_farlands_label');
+                const supported = farlandsThreshold(genId) > 0;
+
+                checkbox.disabled = !supported;
+                label.style.opacity = supported ? '' : '0.4';
+
+                if (!supported && checkbox.checked) {
+                    checkbox.checked = false;
+                }
+                updateFarlandsLayer();
+            }
+
+            checkIfFarlands(appliedGenId);
+            document
+                .getElementById('check_farlands')
+                .addEventListener('change', () => {
+                    updateFarlandsLayer();
+                    writeShareParams();
+                });
+
+            const worldBoundaryLayer = new WorldBoundaryOverlay({
+                pane: 'gridPane',
+                tileSize: scale,
+                minZoom: minZoom,
+                maxZoom: 2,
+                noWrap: true,
+                opacity: 1,
+            });
+
+            function updateWorldBoundaryLayer() {
+                const show = document.getElementById('check_world_boundary')?.checked;
+                if (show) {
+                    if (!map.hasLayer(worldBoundaryLayer)) worldBoundaryLayer.addTo(map);
+                    else worldBoundaryLayer.redraw();
+                } else {
+                    if (map.hasLayer(worldBoundaryLayer)) map.removeLayer(worldBoundaryLayer);
+                }
+            }
+
+            function checkIfWorldBoundary(genId) {
+                const checkbox = document.getElementById('check_world_boundary');
+                const label = document.getElementById('check_world_boundary_label');
+                const supported = worldBoundaryThreshold(genId) > 0;
+
+                checkbox.disabled = !supported;
+                label.style.opacity = supported ? '' : '0.4';
+
+                if (!supported && checkbox.checked) {
+                    checkbox.checked = false;
+                }
+                updateWorldBoundaryLayer();
+            }
+
+            checkIfWorldBoundary(appliedGenId);
+            document
+                .getElementById('check_world_boundary')
+                .addEventListener('change', () => {
+                    updateWorldBoundaryLayer();
+                    writeShareParams();
+                });
 
             // When updating generator/seed:
             window.updateGenJs = function() {
                 cancelAllTiles();
                 const genId = Number(document.getElementById('genSelection').value);
                 const seed = document.getElementById('seedValue').value.trim();
+                appliedGenId = genId;
 
                 checkIfSnowWorld(genId);
                 checkIfSlimeChunks(genId);
+                checkIfFarlands(genId);
+                checkIfWorldBoundary(genId);
 
                 // notify workers
                 workers.forEach(w => {
                     w.postMessage({ type: 'updateGenAndSeed', seed, genId });
                 });
+                updateGenAndSeedMain(seed, genId);
+                updateCenter();
 
                 regenTiles(); // regenerate visible tiles
                 updateSlimeLayer();
+                updateFarlandsLayer();
+                updateWorldBoundaryLayer();
+                writeShareParams();
             }
             
             document.getElementById('updateGen').addEventListener('click', updateGenJs);
@@ -690,6 +1000,8 @@ window.addEventListener('load', () => {
             document.getElementById('zPos').addEventListener('change', setPosition);
             
             map.on('move',      updateCenter);
+            map.on('moveend',   scheduleShareParams);
+            map.on('zoomend',   scheduleShareParams);
             map.on('zoomstart', () => {
                 currentGenId++;
                 dropQueuedJobs();
@@ -740,7 +1052,7 @@ window.addEventListener('load', () => {
                 pane: 'gridPane',
                 tileSize: scale,
                 scale: 1,
-                minZoom: -8,
+                minZoom: minZoom,
                 maxZoom: 3,
                 noWrap: true
             }).addTo(map);
@@ -750,6 +1062,7 @@ window.addEventListener('load', () => {
             
             function refreshGridOverlay() {
                 gridOverlay.redraw();
+                writeShareParams();
             }
             
             document
@@ -759,6 +1072,22 @@ window.addEventListener('load', () => {
             document
                 .getElementById('check_region_grid')
                 .addEventListener('change', refreshGridOverlay);
+
+            [
+                'viewMode',
+                'colorMode',
+                'check_blockcolors',
+                'check_water',
+                'check_snow_mode',
+            ].forEach((id) => {
+                document.getElementById(id)?.addEventListener('change', () => {
+                    if (id === 'colorMode')
+                        syncBlockColorsForColorMode();
+                    cancelAllTiles();
+                    regenTiles();
+                    writeShareParams();
+                });
+            });
             
             document.getElementById('randomSeed').addEventListener('click', () => {
                 // Generate a random 64-bit-range signed long, same as Java's world seeds
@@ -796,15 +1125,18 @@ window.addEventListener('load', () => {
                 new DynamicLayer({
                     pane: 'tilePane',
                     tileSize: scale,
-                    minZoom: -8,  // matches map minZoom and MAX_ZOOM_OUT in main.cpp
+                    minZoom: minZoom,
                     maxZoom: 3,
                     noWrap: true,
                     keepBuffer: 8,
                     updateWhenZooming: false,
                 }).addTo(map);
 
-                // Put desired position here
-                map.setView([0, 0], tileZoom);
+                let startZoom = Number.isFinite(share.zoom) ? share.zoom : tileZoom;
+                if (startZoom < minZoom) startZoom = minZoom;
+                if (startZoom > 2) startZoom = 2;
+                map.setView([share.z * -1, share.x], startZoom);
+                writeShareParams();
             });
       }
   });
