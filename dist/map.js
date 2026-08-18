@@ -96,15 +96,16 @@ function getOptions() {
     let opt_value = 0;
     const viewMode = document.getElementById('viewMode')?.value || 'topo';
     const colorMode = document.getElementById('colorMode')?.value || 'biome';
-    if (viewMode === 'heightmap') opt_value |= 1 << 0;
-    if (document.getElementById('check_blockcolors').checked && colorMode !== 'topology') opt_value |= 1 << 1;
+    if (viewMode === 'heightmap' && colorMode !== 'map') opt_value |= 1 << 0;
+    if (document.getElementById('check_blockcolors').checked && colorMode !== 'topology' && colorMode !== 'map') opt_value |= 1 << 1;
     if (document.getElementById('check_water').checked) opt_value |= 1 << 2;
     if (document.getElementById('check_snow_mode').checked) opt_value |= 1 << 3;
     if (document.getElementById('check_snow_world').checked) opt_value |= 1 << 4;
     if (colorMode === 'biome') opt_value |= 1 << 5;
-    if (viewMode === 'topo') opt_value |= 1 << 6;
+    if (viewMode === 'topo' && colorMode !== 'map') opt_value |= 1 << 6;
     if (colorMode === 'accurate') opt_value |= 1 << 7;
     if (colorMode === 'topology') opt_value |= 1 << 8;
+    if (colorMode === 'map') opt_value |= 1 << 9;
     return opt_value;
 }
 
@@ -428,14 +429,21 @@ function parseSeed(raw) {
 }
 
 function syncBlockColorsForColorMode() {
-    const topology = document.getElementById('colorMode')?.value === 'topology';
+    const colorMode = document.getElementById('colorMode')?.value;
+    const topology = colorMode === 'topology';
+    const mapMode = colorMode === 'map';
     const cb = document.getElementById('check_blockcolors');
     const label = document.getElementById('check_blockcolors_label');
-    if (!cb)
-        return;
-    cb.disabled = topology;
-    if (label)
-        label.style.opacity = topology ? '0.4' : '';
+    if (cb) {
+        cb.disabled = topology || mapMode;
+        if (label)
+            label.style.opacity = cb.disabled ? '0.4' : '';
+    }
+    const shade = document.getElementById('viewMode');
+    if (shade) {
+        shade.disabled = mapMode;
+        shade.style.opacity = mapMode ? '0.4' : '';
+    }
 }
 
 function generatorHasBiomes(genId) {
@@ -466,7 +474,7 @@ function applyShareParams() {
     }
     if (p.has('color')) {
         const v = p.get('color');
-        if (['none', 'biome', 'accurate', 'topology'].includes(v))
+        if (['none', 'biome', 'accurate', 'topology', 'map'].includes(v))
             document.getElementById('colorMode').value = v;
     }
     setCheck('check_blockcolors', 'blocks');
@@ -659,6 +667,7 @@ window.addEventListener('load', () => {
                                         <option value="biome" selected>Biome Colors</option>
                                         <option value="accurate">Accurate Colors</option>
                                         <option value="topology">Topology</option>
+                                        <option value="map">Map Item</option>
                                     </select><br>
 
                                     <input type="checkbox" id="check_blockcolors" checked>

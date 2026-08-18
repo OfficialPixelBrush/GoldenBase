@@ -12,6 +12,7 @@
 #include "./generators/infdev/inf20100420/generatorInfdev20100420.h"
 #include "./generators/infdev/inf20100611/generatorInfdev20100611.h"
 #include "biomeColors.h"
+#include "mapColors.h"
 #include "blocks.h"
 #include "noiseLod.h"
 #include "javaMath.h"
@@ -157,6 +158,61 @@ void ApplyTopoHillshade() {
             buffer[idx + 0] = clamp(float(buffer[idx + 0]) * shade);
             buffer[idx + 1] = clamp(float(buffer[idx + 1]) * shade);
             buffer[idx + 2] = clamp(float(buffer[idx + 2]) * shade);
+        }
+    }
+}
+
+// Beta 1.7.3 ItemMap.func_28011_a + MapItemRenderer brightness:
+// land: (height - previousZ) * 4 / (blocksPerPixel + 4) plus a (x+z) checker,
+// then 180 / 220 / 255. Water uses liquid depth instead of slope.
+void ApplyHandheldMapShade(int scale, int stride, int32_t originX, int32_t originZ) {
+    if (scale < 1)
+        scale = 1;
+    if (stride < 1)
+        stride = 1;
+    const int sampleSize = TILE_PIXELS / scale;
+    const double slopeDenom = double(stride + 4);
+    int prevHeight[TILE_PIXELS];
+    for (int sz = 0; sz < sampleSize; ++sz) {
+        for (int sx = 0; sx < sampleSize; ++sx) {
+            const int pix = (sz * scale) * TILE_PIXELS + (sx * scale);
+            const int h = int(tileHeights[pix]);
+            const int liquidCode = int(tileLiquid[pix]);
+            const int32_t worldX = originX + int32_t(sx) * stride;
+            const int32_t worldZ = originZ + int32_t(sz) * stride;
+            const int checker = (worldX + worldZ) & 1;
+            int brightness = 1;
+            if (liquidCode > 0) {
+                const double depth = double(liquidCode - 1);
+                const double var41 = depth * 0.1 + double(checker) * 0.2;
+                brightness = 1;
+                if (var41 < 0.5)
+                    brightness = 2;
+                if (var41 > 0.9)
+                    brightness = 0;
+            } else {
+                const double prev = (sz > 0) ? double(prevHeight[sx]) : double(h);
+                const double var41 = (double(h) - prev) * 4.0 / slopeDenom + (double(checker) - 0.5) * 0.4;
+                if (var41 > 0.6)
+                    brightness = 2;
+                if (var41 < -0.6)
+                    brightness = 0;
+            }
+            prevHeight[sx] = h;
+            int mul = 220;
+            if (brightness == 2)
+                mul = 255;
+            else if (brightness == 0)
+                mul = 180;
+            for (int sy = 0; sy < scale; ++sy) {
+                for (int px = 0; px < scale; ++px) {
+                    const int out = ((sz * scale) + sy) * TILE_PIXELS + ((sx * scale) + px);
+                    const int idx = out * 4;
+                    buffer[idx + 0] = uint8_t((int(buffer[idx + 0]) * mul) / 255);
+                    buffer[idx + 1] = uint8_t((int(buffer[idx + 1]) * mul) / 255);
+                    buffer[idx + 2] = uint8_t((int(buffer[idx + 2]) * mul) / 255);
+                }
+            }
         }
     }
 }
@@ -343,8 +399,9 @@ extern "C" {
         64  -> Hillshade (slope shading; does not change the color mode)
         128 -> Color mode accurate (vanilla temp/humidity grass tint)
         256 -> Color mode topology (hypsometric elevation tint)
+        512 -> Color mode map (beta 1.7.3 held-map MapColor + slope/water shade)
         ...
-        Color mode none: neither 32, 128, nor 256 (plain pre-biome green)
+        Color mode none: neither 32, 128, 256, nor 512 (plain pre-biome green)
     */
 
     EMSCRIPTEN_KEEPALIVE
@@ -358,6 +415,7 @@ extern "C" {
         bool hillshade      = (options & 64) > 0;
         bool colorAccurate  = (options & 128) > 0;
         bool colorTopology  = (options & 256) > 0;
+        bool colorMap       = (options & 512) > 0;
 
         // ── Zoom-level semantics ──────────────────────────────────────────────
         // zoomLevel > 0  : zoomed IN  — fewer chunks, each block drawn at scale×scale pixels
@@ -405,10 +463,12 @@ extern "C" {
         if (auto* alphaGen = dynamic_cast<GeneratorAlpha112_01*>(gen))
             alphaGen->snowCovered = snowWorld;
         bool darkerGrass = dynamic_cast<GeneratorBeta173*>(gen) != nullptr;
-        const int colorMode = colorTopology ? 3 : (colorAccurate ? 2 : (colorBiome ? 1 : 0));
+        const int colorMode = colorMap ? 4 : (colorTopology ? 3 : (colorAccurate ? 2 : (colorBiome ? 1 : 0)));
+        if (colorMode == 4)
+            hillshade = false;
 
         auto writePixel = [&](int outX, int outZ, int topY, int surface_block_id, Biome biome, float temperature,
-                              float humidity, bool forceMaterial = false) {
+                              float humidity, bool forceMaterial = false, int liquidDepth = -1) {
             if (!showWater && IsWaterOrIce(surface_block_id))
                 surface_block_id = int(GetFillerBlock(biome));
             const bool isWater = surface_block_id == BLOCK_WATER_STILL || surface_block_id == BLOCK_WATER_FLOWING;
@@ -417,7 +477,14 @@ extern "C" {
             const bool showLiquid = showWater && (isWater || isIce);
             const bool isSnow = surface_block_id == BLOCK_SNOW_LAYER || surface_block_id == BLOCK_SNOW;
             const bool useMaterial = blockColors || forceMaterial;
-            if (showLiquid && isWater) {
+            if (colorMode == 4) {
+                Int3 mapColor = GetBlockMapColor(surface_block_id);
+                if (mapColor.x == 0 && mapColor.y == 0 && mapColor.z == 0)
+                    mapColor = GetBlockMapColor(BLOCK_STONE);
+                fr = Int8ToFloat(mapColor.x);
+                fg = Int8ToFloat(mapColor.y);
+                fb = Int8ToFloat(mapColor.z);
+            } else if (showLiquid && isWater) {
                 fr = 0.0f; fg = 0.0f; fb = 1.0f;
             } else if (showLiquid && isIce) {
                 fr = 0.5f; fg = 0.8f; fb = 1.0f;
@@ -444,7 +511,7 @@ extern "C" {
                     fb = Int8ToFloat(tint.z);
                 }
             }
-            if (heightmap && !hillshade) {
+            if (heightmap && !hillshade && colorMode != 4) {
                 float heightFloat = (HeightToFloat(topY) * 1.5f);
                 float gamma = 0.9f;
                 float shadedHeight = powf(heightFloat, gamma);
@@ -455,8 +522,21 @@ extern "C" {
             uint8_t r = FloatToInt8(fr);
             uint8_t g = FloatToInt8(fg);
             uint8_t b = FloatToInt8(fb);
-            const uint8_t liquid = showLiquid ? 1 : 0;
-            const int8_t storedHeight = int8_t(std::max(0, std::min(127, topY)));
+            int storedY = topY;
+            uint8_t liquid = showLiquid ? 1 : 0;
+            if (colorMode == 4) {
+                if (isWater) {
+                    if (liquidDepth < 0)
+                        liquidDepth = std::max(0, WATER_LEVEL - topY);
+                    storedY = (topY >= WATER_LEVEL) ? topY : WATER_LEVEL;
+                    liquid = uint8_t(std::min(255, liquidDepth + 1));
+                } else {
+                    liquid = 0;
+                    if (isIce)
+                        storedY = std::max(topY, WATER_LEVEL);
+                }
+            }
+            const int8_t storedHeight = int8_t(std::max(0, std::min(127, storedY)));
             if (scale > 1) {
                 int originX = outX * scale;
                 int originZ = outZ * scale;
@@ -517,13 +597,18 @@ extern "C" {
                     if (blockColors && surface == BLOCK_AIR)
                         surface = BLOCK_STONE;
                     writePixel(px, pz, col.height, surface, col.biome, col.temperature, col.humidity,
-                               forceMaterial);
+                               forceMaterial, IsMapWaterColor(surface) ? std::max(0, WATER_LEVEL - int(col.height)) : 0);
                 }
             }
-            if (hillshade)
+            if (colorMode == 4)
+                ApplyHandheldMapShade(scale, stride, originX, originZ);
+            else if (hillshade)
                 ApplyTopoHillshade();
             return buffer;
         }
+
+        const int32_t chunkOriginX = int32_t(int64_t(x) * int64_t(batchSize) * CHUNK_WIDTH);
+        const int32_t chunkOriginZ = int32_t(int64_t(z) * int64_t(batchSize) * CHUNK_WIDTH);
 
         for (int bx = 0; bx < batchSize; bx++) {
             for (int bz = 0; bz < batchSize; bz++) {
@@ -538,9 +623,51 @@ extern "C" {
                         int cover = chunk.GetBlockType(Int3{px, topY, pz});
                         int below = topY > 0 ? chunk.GetBlockType(Int3{px, topY - 1, pz}) : BLOCK_AIR;
                         int surface_block_id = cover;
+                        int liquidDepth = 0;
                         const bool coverLiquid = IsWaterOrIce(cover);
                         const bool belowLiquid = IsWaterOrIce(below);
-                        if (showWater && (coverLiquid || belowLiquid)) {
+                        if (colorMode == 4) {
+                            // Vanilla ItemMap starts at heightMap+1. Our solid/liquid
+                            // height skips snow layers, so also start above GetHeightValue
+                            // (which does count snow) so snow is the map color.
+                            int highest = chunk.GetHighestSolidOrLiquidBlock(Int2{px, pz});
+                            int y = topY + 1;
+                            if (highest > y)
+                                y = highest;
+                            if (y > CHUNK_HEIGHT)
+                                y = CHUNK_HEIGHT;
+                            surface_block_id = BLOCK_AIR;
+                            liquidDepth = 0;
+                            if (y > 1) {
+                                while (y > 0) {
+                                    bool found = true;
+                                    surface_block_id = chunk.GetBlockType(Int3{px, y - 1, pz});
+                                    if (surface_block_id == BLOCK_AIR || IsMapColorAir(surface_block_id))
+                                        found = false;
+                                    if (!found) {
+                                        --y;
+                                        continue;
+                                    }
+                                    if (!showWater && (IsWaterOrIce(surface_block_id) || IsLiquid(surface_block_id))) {
+                                        --y;
+                                        continue;
+                                    }
+                                    if (surface_block_id == BLOCK_AIR || !IsLiquid(surface_block_id))
+                                        break;
+                                    int y2 = y - 1;
+                                    while (true) {
+                                        const int under = chunk.GetBlockType(Int3{px, y2--, pz});
+                                        ++liquidDepth;
+                                        if (y2 <= 0 || under == BLOCK_AIR || !IsLiquid(under))
+                                            break;
+                                    }
+                                    break;
+                                }
+                            }
+                            topY = y;
+                            if (surface_block_id == BLOCK_AIR)
+                                surface_block_id = int(GetFillerBlock(chunk.GetBiome(px, pz)));
+                        } else if (showWater && (coverLiquid || belowLiquid)) {
                             surface_block_id = coverLiquid ? cover : below;
                         } else {
                             surface_block_id = BLOCK_AIR;
@@ -561,12 +688,14 @@ extern "C" {
                         int outZ = bz * CHUNK_WIDTH + pz;
                         writePixel(outX, outZ, topY, surface_block_id, chunk.GetBiome(px, pz),
                                    chunk.temperature[px * CHUNK_WIDTH + pz],
-                                   chunk.humidity[px * CHUNK_WIDTH + pz]);
+                                   chunk.humidity[px * CHUNK_WIDTH + pz], false, liquidDepth);
                     }
                 }
             }
         }
-        if (hillshade)
+        if (colorMode == 4)
+            ApplyHandheldMapShade(scale, stride, chunkOriginX, chunkOriginZ);
+        else if (hillshade)
             ApplyTopoHillshade();
         return buffer;
     }
