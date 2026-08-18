@@ -112,12 +112,12 @@ void GeneratorBeta173::ReplaceBlocksForBiome(Int2 chunkPos, Chunk &c) {
 											  double(chunkPos.y * CHUNK_WIDTH), 0.0, CHUNK_WIDTH, CHUNK_WIDTH, 1, oneThirtySecond,
 											  oneThirtySecond, 1.0);
 	if (gravelFix) {
-		// Beta-era terrain between A1.x.x - Beta 1.7.3
+		// Beta-era terrain between B1.3.0 - B1.7.3
 		this->sandGravelNoiseGen.GenerateOctaves(this->gravelNoise, double(chunkPos.x * CHUNK_WIDTH), 109.0134,
 											  double(chunkPos.y * CHUNK_WIDTH), CHUNK_WIDTH, 1, CHUNK_WIDTH, oneThirtySecond, 1.0,
 											  oneThirtySecond);
 	} else {
-		// Beta-era terrain between A1.2.0 - ?	
+		// Beta-era terrain between A1.2.0 - B1.2.0_02
 		this->sandGravelNoiseGen.GenerateOctaves(this->gravelNoise, double(chunkPos.y * CHUNK_WIDTH), 109.0134,
 											  double(chunkPos.x * CHUNK_WIDTH), CHUNK_WIDTH, 1, CHUNK_WIDTH, oneThirtySecond, 1.0,
 											  oneThirtySecond);
