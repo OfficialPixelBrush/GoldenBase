@@ -505,7 +505,7 @@ window.addEventListener('load', () => {
             window.Module = Module;
             const updateGenAndSeedMain = this.cwrap('UpdateGenAndSeed', 'void', ['string', 'number']);
             const getBiomeAt = (typeof this._getBiomeAt === 'function')
-                ? this.cwrap('getBiomeAt', 'number', ['number', 'number'])
+                ? this.cwrap('getBiomeAt', 'number', ['number', 'number', 'number'])
                 : null;
 
             const tileZoom = 0; // your tiles exist only at this zoom
@@ -589,8 +589,8 @@ window.addEventListener('load', () => {
                         <tr>
                             <td>
                                 <code id="coords"></code><br/>
-                                <code id="bigCoords"></code>
-                                <code id="biomeCoords"></code><br/>
+                                <code id="bigCoords"></code><br>
+                                <code id="biomeCoords"></code>
                             </td>
                             <td>
                                 <input type="number" id="xPos" placeholder="x" value="0" style="width: 20%">
@@ -698,6 +698,10 @@ window.addEventListener('load', () => {
             infoControl.addTo(map);
             const share = applyShareParams();
             appliedGenId = Number(document.getElementById('genSelection').value) || 9;
+            updateGenAndSeedMain(
+                document.getElementById('seedValue').value.trim(),
+                appliedGenId
+            );
             syncBlockColorsForColorMode();
 
             function checkIfSnowWorld(genId) {
@@ -740,14 +744,11 @@ window.addEventListener('load', () => {
             function updateCenter() {
                 const center = map.getCenter();
                 const point = map.project(center, tileZoom);
-
-                mapCenter.x = point.x / scale;
-                
-                mapCenter.y = point.y / scale;
-
-                const blockPosX = mapCenter.x * scale;
-                const blockPosZ = mapCenter.y * scale;
-                document.getElementById('coords').textContent = `Center: ${(blockPosX).toFixed(2)}, ${(blockPosZ).toFixed(2)}`;
+                const blockPosX = point.x;
+                const blockPosZ = point.y;
+                mapCenter.x = blockPosX / scale;
+                mapCenter.y = blockPosZ / scale;
+                document.getElementById('coords').textContent = `Center: ${blockPosX.toFixed(2)}, ${blockPosZ.toFixed(2)}`;
                 document.getElementById('bigCoords').textContent = `Cnk: ${((blockPosX/16)-0.5).toFixed(0)}, ${((blockPosZ/16)-0.5).toFixed(0)} / Rgn: ${((blockPosX/512)-0.5).toFixed(0)}, ${((blockPosZ/512)-0.5).toFixed(0)}`;
                 const biomeEl = document.getElementById('biomeCoords');
                 if (biomeEl) {
@@ -757,7 +758,11 @@ window.addEventListener('load', () => {
                     } else {
                         biomeEl.style.display = '';
                         if (getBiomeAt) {
-                            const info = biomeInfo(getBiomeAt(Math.floor(blockPosX), Math.floor(blockPosZ)));
+                            const info = biomeInfo(getBiomeAt(
+                                Math.floor(blockPosX),
+                                Math.floor(blockPosZ),
+                                map.getZoom()
+                            ));
                             biomeEl.innerHTML = `Biome: <span style="display:inline-block;width:10px;height:10px;background:${info.color};border:1px solid #888;vertical-align:middle;margin-right:4px;"></span>${info.name}`;
                         } else {
                             biomeEl.textContent = 'Biome: —';
@@ -1136,6 +1141,7 @@ window.addEventListener('load', () => {
                 if (startZoom < minZoom) startZoom = minZoom;
                 if (startZoom > 2) startZoom = 2;
                 map.setView([share.z * -1, share.x], startZoom);
+                updateCenter();
                 writeShareParams();
             });
       }

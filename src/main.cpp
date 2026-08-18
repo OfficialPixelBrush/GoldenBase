@@ -242,13 +242,37 @@ extern "C" {
         return MAX_ZOOM_OUT;
     }
 
+    static int32_t AlignToStride(int32_t coord, int32_t stride) {
+        if (stride <= 1)
+            return coord;
+        const int64_t s = stride;
+        const int64_t c = coord;
+        int64_t q = c / s;
+        if (c < 0 && (c % s) != 0)
+            --q;
+        return int32_t(q * s);
+    }
+
     EMSCRIPTEN_KEEPALIVE
-    int getBiomeAt(int32_t blockX, int32_t blockZ) {
+    int getBiomeAt(int32_t blockX, int32_t blockZ, int zoomLevel) {
         if (!generatorPtr)
             return int(BIOME_NONE);
+        int stride = 1;
+        if (zoomLevel < 0) {
+            int zoomOut = -zoomLevel;
+            if (zoomOut > MAX_ZOOM_OUT)
+                zoomOut = MAX_ZOOM_OUT;
+            stride = 1 << zoomOut;
+        }
+        // Same sample grid as zoomed-out tiles: one value per (stride × stride) block.
+        // Floor-align so negative coords match Leaflet tile origins (not toward-zero division).
+        const int32_t sampleX = AlignToStride(blockX, stride);
+        const int32_t sampleZ = AlignToStride(blockZ, stride);
+        if (auto* beta = dynamic_cast<GeneratorBeta173*>(generatorPtr))
+            return int(beta->SampleBiome(sampleX, sampleZ, stride));
         TileColumn col;
-        generatorPtr->SetDetailLevel(1);
-        generatorPtr->SampleColumns(blockX, blockZ, 1, 1, &col);
+        generatorPtr->SetDetailLevel(stride);
+        generatorPtr->SampleColumns(sampleX, sampleZ, 1, stride, &col);
         return int(col.biome);
     }
 

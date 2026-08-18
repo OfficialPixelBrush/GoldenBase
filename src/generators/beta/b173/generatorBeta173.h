@@ -60,5 +60,6 @@ class GeneratorBeta173 : public Generator {
 	bool PopulateChunk(Int2 chunkPos) override;
 	void SetDetailLevel(int32_t stride) override;
 	void SampleColumns(int32_t originX, int32_t originZ, int32_t samples, int32_t stride, TileColumn *out) override;
+	Biome SampleBiome(int32_t originX, int32_t originZ, int32_t stride);
 	bool gravelFix = true;
 };

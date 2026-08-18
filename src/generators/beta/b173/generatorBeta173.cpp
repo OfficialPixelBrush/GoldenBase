@@ -502,6 +502,13 @@ void GeneratorBeta173::FillDensityStrip(std::vector<double> &terrainMap, double 
 	}
 }
 
+Biome GeneratorBeta173::SampleBiome(int32_t originX, int32_t originZ, int32_t stride) {
+	SetDetailLevel(stride);
+	biomeGen.GenerateBiomeMap(biomeMap, temperature, humidity, weirdness, Int2{originX, originZ}, Int2{1, 1},
+							  double(stride));
+	return biomeMap.empty() ? BIOME_NONE : biomeMap[0];
+}
+
 void GeneratorBeta173::SampleColumns(int32_t originX, int32_t originZ, int32_t samples, int32_t stride, TileColumn *out) {
 	SetDetailLevel(stride);
 	biomeGen.GenerateBiomeMap(biomeMap, temperature, humidity, weirdness, Int2{originX, originZ}, Int2{samples, samples},
