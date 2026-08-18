@@ -1,6 +1,8 @@
 #include <stdint.h>
 #include <math.h>
 #include <iostream>
+#include <algorithm>
+#include <cctype>
 #include <emscripten.h>
 #include <string>
 #include "./generators/beta/b173/generatorBeta173.h"
@@ -11,16 +13,17 @@
 #include "./generators/infdev/inf20100611/generatorInfdev20100611.h"
 #include "biomeColors.h"
 #include "blocks.h"
+#include "noiseLod.h"
+#include "javaMath.h"
 
-#define MAX_BATCH_SIZE 4  // supports zoomLevel 0..3 (2^3 = 8 chunks per tile side)
+#define TILE_PIXELS 256
 // Negative zoomLevel zooms out: each step doubles the number of chunks per tile side.
-// MAX_ZOOM_OUT controls how far out we allow (e.g. 3 → 32 chunks per side at level -3).
-#define MAX_ZOOM_OUT 4
-// Low-detail multiplier used when zoomed out beyond 1:1 pixel scale (zoomLevel < 0).
-#define LOW_DETAIL_MULTIPLIER 0.01f
+// MAX_ZOOM_OUT controls how far out we allow (e.g. 8 → 4096 chunks per side at level -8).
+#define MAX_ZOOM_OUT 8
 
-static uint8_t buffer[(CHUNK_WIDTH * MAX_BATCH_SIZE) * (CHUNK_WIDTH * MAX_BATCH_SIZE) * 4];
-// The output tile is always MAX_BATCH_SIZE*CHUNK_WIDTH pixels square, regardless of zoom level.
+static uint8_t buffer[TILE_PIXELS * TILE_PIXELS * 4];
+static TileColumn columns[TILE_PIXELS * TILE_PIXELS];
+// The output tile is always TILE_PIXELS square, regardless of zoom level.
 
 static uint8_t clamp(double v) {
     if (v < 0) return 0;
@@ -128,9 +131,11 @@ extern "C" {
     int64_t currentSeed = 3257840388504953787;
     genSelect activeGenId = GEN_BETA_BETA173;
     Generator* generatorPtr = nullptr;
-    // Low-detail generator used when zoomLevel < 0 (zoomed out beyond 1:1).
-    // Created with LOW_DETAIL_MULTIPLIER to reduce noise octave count for speed.
-    Generator* lowDetailGeneratorPtr = nullptr;
+
+    EMSCRIPTEN_KEEPALIVE
+    int getTileSize() {
+        return TILE_PIXELS;
+    }
 
     EMSCRIPTEN_KEEPALIVE
     void UpdateGenAndSeed(const char* seed_cstr, int genId = GEN_BETA_BETA173) {
@@ -183,14 +188,9 @@ extern "C" {
             }
         };
 
-        // Replace normal-detail generator
+        // Replace generator (octave LOD is applied per tile via SetDetailLevel)
         if (generatorPtr) { delete generatorPtr; generatorPtr = nullptr; }
         generatorPtr = makeGenerator(1.0);
-
-        // Replace low-detail generator (used when zoomed out beyond 1:1)
-        if (lowDetailGeneratorPtr) { delete lowDetailGeneratorPtr; lowDetailGeneratorPtr = nullptr; }
-        lowDetailGeneratorPtr = makeGenerator(LOW_DETAIL_MULTIPLIER);
-        lowDetailGeneratorPtr->lowDetail = true;
     }
     
     /*
@@ -218,55 +218,124 @@ extern "C" {
 
         // ── Zoom-level semantics ──────────────────────────────────────────────
         // zoomLevel > 0  : zoomed IN  — fewer chunks, each block drawn at scale×scale pixels
-        //   batchSize = MAX_BATCH_SIZE >> zoomLevel  (min 1)
+        //   batchSize = (TILE_PIXELS/16) >> zoomLevel  (min 1)
         //   scale     = 1 << zoomLevel
-        //   stride    = 1  (every block is sampled)
+        //   stride    = 1  (every block is sampled, full octaves)
         //
-        // zoomLevel = 0  : base — MAX_BATCH_SIZE chunks per side, 1px per block
+        // zoomLevel = 0  : 1:1 — TILE_PIXELS/16 chunks per side, 1px per block, full detail
         //
-        // zoomLevel < 0  : zoomed OUT — more chunks per tile, 1px per sampled block
-        //   batchSize = MAX_BATCH_SIZE << (-zoomLevel)  (more chunks)
-        //   scale     = 1
-        //   stride    = 1 << (-zoomLevel)  (sample every stride-th block per chunk)
-        //   Uses lowDetailGeneratorPtr for faster (lower-octave) generation.
+        // zoomLevel < 0  : zoomed OUT — more world per tile, 1px per sampled block
+        //   stride    = 1 << (-zoomLevel)
+        //   Fine octaves are dropped; terrain is sampled as a single noise field
+        //   instead of generating full voxel chunks.
         //
-        // The output tile is always (MAX_BATCH_SIZE*CHUNK_WIDTH)² pixels.
+        // The output tile is always TILE_PIXELS² pixels.
         // ─────────────────────────────────────────────────────────────────────
 
-        int tileWidth = MAX_BATCH_SIZE * CHUNK_WIDTH;   // constant: 64
+        const int chunksAtZoom0 = TILE_PIXELS / CHUNK_WIDTH;
+        const int tileWidth = TILE_PIXELS;
 
         int batchSize, scale, stride;
-        Generator* gen;
+        Generator* gen = generatorPtr;
+        if (!gen)
+            return buffer;
 
         if (zoomLevel >= 0) {
-            // Zoomed in (or base)
-            batchSize = MAX_BATCH_SIZE >> zoomLevel;
+            batchSize = chunksAtZoom0 >> zoomLevel;
             scale     = 1 << zoomLevel;
             stride    = 1;
-            if (batchSize < 1)          { batchSize = 1; scale = MAX_BATCH_SIZE; }
-            if (scale > MAX_BATCH_SIZE) { scale = MAX_BATCH_SIZE; batchSize = 1; }
-            gen = generatorPtr;
-        } else {
-            // Zoomed out — clamp to MAX_ZOOM_OUT
-            int zoomOut = -zoomLevel;
-            if (zoomOut > MAX_ZOOM_OUT) zoomOut = MAX_ZOOM_OUT;
-            batchSize = MAX_BATCH_SIZE << zoomOut;   // more chunks to cover
-            scale     = 1;
-            stride    = 1 << zoomOut;                // sample 1 in every stride blocks
-            if (zoomLevel < -1) {
-                gen = lowDetailGeneratorPtr ? lowDetailGeneratorPtr : generatorPtr;
-                blockColors = false;
-                heightmap = false;
-            } else {
-                gen = generatorPtr;
+            if (batchSize < 1) {
+                batchSize = 1;
+                scale = chunksAtZoom0;
             }
+        } else {
+            int zoomOut = -zoomLevel;
+            if (zoomOut > MAX_ZOOM_OUT)
+                zoomOut = MAX_ZOOM_OUT;
+            batchSize = chunksAtZoom0 << zoomOut;
+            scale     = 1;
+            stride    = 1 << zoomOut;
         }
+
+        gen->SetDetailLevel(stride);
         gen->snowMode = snowMode;
-        // Only set snow world for specific generator
         if (auto* alphaGen = dynamic_cast<GeneratorAlpha112_01*>(gen))
             alphaGen->snowCovered = snowWorld;
-        // Is beta generator, and thus can have darker grass
         bool darkerGrass = dynamic_cast<GeneratorBeta173*>(gen) != nullptr;
+
+        auto writePixel = [&](int outX, int outZ, int topY, int surface_block_id, Biome biome, float temperature,
+                              float humidity) {
+            float fr, fg, fb;
+            if (showWater && surface_block_id == BLOCK_WATER_STILL) {
+                fr = 0.0f; fg = 0.0f; fb = 1.0f;
+            } else if (showWater && surface_block_id == BLOCK_ICE) {
+                fr = 0.5f; fg = 0.8f; fb = 1.0f;
+            } else {
+                Int3 biomeColor;
+                bool renderDarkerGrass = tempHumiColor && darkerGrass;
+                if (renderDarkerGrass)
+                    biomeColor = GetGrassColor(temperature, humidity);
+                else
+                    biomeColor = GetBiomeColor(biome);
+                if (blockColors) {
+                    Int3 blockColor = GetBlockColor(surface_block_id, biomeColor, renderDarkerGrass);
+                    fr = Int8ToFloat(blockColor.x);
+                    fg = Int8ToFloat(blockColor.y);
+                    fb = Int8ToFloat(blockColor.z);
+                } else {
+                    biomeColor = renderDarkerGrass ? MultiplyColor(biomeColor, HexToInt3(0x929292)) : biomeColor;
+                    fr = Int8ToFloat(biomeColor.x);
+                    fg = Int8ToFloat(biomeColor.y);
+                    fb = Int8ToFloat(biomeColor.z);
+                }
+            }
+            if (heightmap) {
+                float heightFloat = (HeightToFloat(topY) * 1.5f);
+                float gamma = 0.9f;
+                float shadedHeight = powf(heightFloat, gamma);
+                fr *= shadedHeight;
+                fg *= shadedHeight;
+                fb *= shadedHeight;
+            }
+            uint8_t r = FloatToInt8(fr);
+            uint8_t g = FloatToInt8(fg);
+            uint8_t b = FloatToInt8(fb);
+            if (scale > 1) {
+                int originX = outX * scale;
+                int originZ = outZ * scale;
+                for (int sy = 0; sy < scale; sy++) {
+                    for (int sx = 0; sx < scale; sx++) {
+                        int idx = ((originZ + sy) * tileWidth + (originX + sx)) * 4;
+                        buffer[idx + 0] = r;
+                        buffer[idx + 1] = g;
+                        buffer[idx + 2] = b;
+                        buffer[idx + 3] = 255;
+                    }
+                }
+            } else {
+                int idx = (outZ * tileWidth + outX) * 4;
+                buffer[idx + 0] = r;
+                buffer[idx + 1] = g;
+                buffer[idx + 2] = b;
+                buffer[idx + 3] = 255;
+            }
+        };
+
+        if (stride > 1) {
+            const int32_t originX = x * batchSize * CHUNK_WIDTH;
+            const int32_t originZ = z * batchSize * CHUNK_WIDTH;
+            gen->SampleColumns(originX, originZ, TILE_PIXELS, stride, columns);
+            for (int pz = 0; pz < TILE_PIXELS; ++pz) {
+                for (int px = 0; px < TILE_PIXELS; ++px) {
+                    const TileColumn &col = columns[pz * TILE_PIXELS + px];
+                    int surface = col.surface;
+                    if (blockColors && surface == BLOCK_AIR)
+                        surface = BLOCK_STONE;
+                    writePixel(px, pz, col.height, surface, col.biome, col.temperature, col.humidity);
+                }
+            }
+            return buffer;
+        }
 
         for (int bx = 0; bx < batchSize; bx++) {
             for (int bz = 0; bz < batchSize; bz++) {
@@ -275,77 +344,17 @@ extern "C" {
                     z * batchSize + bz
                 });
 
-                // Which output pixel column/row does this chunk contribute to?
-                // At stride>1 we only write one pixel per stride blocks.
-                for (int px = 0; px < CHUNK_WIDTH; px += stride) {
-                    for (int pz = 0; pz < CHUNK_WIDTH; pz += stride) {
-                        float fr,fg,fb;
-                        uint8_t r, g, b;
-                        float shadedHeight = 1.0f;
+                for (int px = 0; px < CHUNK_WIDTH; px++) {
+                    for (int pz = 0; pz < CHUNK_WIDTH; pz++) {
                         int topY = chunk.GetHeightValue(px, pz);
                         int surface_block_id = chunk.GetBlockType(Int3{px, topY, pz});
-                        if (showWater && surface_block_id == BLOCK_WATER_STILL) {
-                            fr = 0.0f; fg = 0.0f; fb = 1.0f;
-                        } else if (showWater && surface_block_id == BLOCK_ICE) {
-                            fr = 0.5f; fg = 0.8f; fb = 1.0f;
-                        } else {
-                            Int3 biomeColor;
-                            bool renderDarkerGrass = tempHumiColor && darkerGrass;
-                            if (renderDarkerGrass)
-                                biomeColor = chunk.GetGrassColor(px,pz);
-                            else
-                                biomeColor = GetBiomeColor(chunk.GetBiome(px, pz));
-                            if (blockColors) {
-                                surface_block_id = chunk.GetBlockType(Int3{px, topY-1, pz});
-                                Int3 blockColor = GetBlockColor(surface_block_id, biomeColor, renderDarkerGrass);
-                                fr = Int8ToFloat(blockColor.x);
-                                fg = Int8ToFloat(blockColor.y);
-                                fb = Int8ToFloat(blockColor.z);
-                            } else {
-                                biomeColor = renderDarkerGrass ? MultiplyColor(biomeColor, HexToInt3(0x929292)) : biomeColor;
-                                fr = Int8ToFloat(biomeColor.x);
-                                fg = Int8ToFloat(biomeColor.y);
-                                fb = Int8ToFloat(biomeColor.z);
-                            }
-                        }
-                        if (heightmap) {
-                            float heightFloat = (HeightToFloat(topY) * 1.5f);
-                            float gamma = 0.9f;
-                            shadedHeight = powf(heightFloat, gamma);
-                            fr *= shadedHeight;
-                            fg *= shadedHeight;
-                            fb *= shadedHeight;
-                        }
-                        r = FloatToInt8(fr);
-                        g = FloatToInt8(fg);
-                        b = FloatToInt8(fb);
-
-                        // Output pixel position: each (chunk, sampled-block) maps to one pixel.
-                        // For zoom-out: pixel (outX, outZ) = (bx*(CHUNK_WIDTH/stride) + px/stride, ...)
-                        // For zoom-in:  pixel origin (bx*CHUNK_WIDTH + px)*scale, drawn scale×scale.
-                        if (scale > 1) {
-                            int originX = (bx * CHUNK_WIDTH + px) * scale;
-                            int originZ = (bz * CHUNK_WIDTH + pz) * scale;
-                            for (int sy = 0; sy < scale; sy++) {
-                                for (int sx = 0; sx < scale; sx++) {
-                                    int idx = ((originZ + sy) * tileWidth + (originX + sx)) * 4;
-                                    buffer[idx + 0] = r;
-                                    buffer[idx + 1] = g;
-                                    buffer[idx + 2] = b;
-                                    buffer[idx + 3] = 255;
-                                }
-                            }
-                        } else {
-                            // stride >= 1: one output pixel per sampled block
-                            int samplesPerChunk = CHUNK_WIDTH / stride;   // e.g. 16, 8, 4...
-                            int outX = bx * samplesPerChunk + px / stride;
-                            int outZ = bz * samplesPerChunk + pz / stride;
-                            int idx = (outZ * tileWidth + outX) * 4;
-                            buffer[idx + 0] = r;
-                            buffer[idx + 1] = g;
-                            buffer[idx + 2] = b;
-                            buffer[idx + 3] = 255;
-                        }
+                        if (blockColors)
+                            surface_block_id = chunk.GetBlockType(Int3{px, topY - 1, pz});
+                        int outX = bx * CHUNK_WIDTH + px;
+                        int outZ = bz * CHUNK_WIDTH + pz;
+                        writePixel(outX, outZ, topY, surface_block_id, chunk.GetBiome(px, pz),
+                                   chunk.temperature[px * CHUNK_WIDTH + pz],
+                                   chunk.humidity[px * CHUNK_WIDTH + pz]);
                     }
                 }
             }

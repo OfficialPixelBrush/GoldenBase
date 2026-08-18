@@ -47,6 +47,8 @@ class GeneratorBeta173 : public Generator {
 
 	void GenerateTerrain(Int2 chunkPos, Chunk &c);
 	void GenerateTerrainNoise(std::vector<double> &terrainMap, Int3 chunkPos, Int3 max);
+	void FillDensityStrip(std::vector<double> &terrainMap, double coordX, double coordZ, double scaleXZ, double scaleY,
+						  Int3 max, int32_t climateWidth, int32_t climateZ0);
 	void ReplaceBlocksForBiome(Int2 chunkPos, Chunk &c);
 	Biome GetBiomeAt(Int2 worldPos);
 	bool PseudoPopulateChunk(Int2 chunkPos, Chunk &c);
@@ -56,5 +58,7 @@ class GeneratorBeta173 : public Generator {
 	~GeneratorBeta173() = default;
 	Chunk GenerateChunk(Int2 chunkPos) override;
 	bool PopulateChunk(Int2 chunkPos) override;
+	void SetDetailLevel(int32_t stride) override;
+	void SampleColumns(int32_t originX, int32_t originZ, int32_t samples, int32_t stride, TileColumn *out) override;
 	bool gravelFix = true;
 };

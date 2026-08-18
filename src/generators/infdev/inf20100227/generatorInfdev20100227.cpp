@@ -1,4 +1,5 @@
 #include "generatorInfdev20100227.h"
+#include "javaMath.h"
 
 GeneratorInfdev20100227::GeneratorInfdev20100227(int64_t pSeed, float multiplier) : Generator(pSeed, multiplier) {
 	this->seed = pSeed;
@@ -106,6 +107,68 @@ Chunk GeneratorInfdev20100227::GenerateChunk(Int2 chunkPos) {
 		c.GenerateHeightMap();
 	c.state = ChunkState::Generated;
 	return c;
+}
+
+void GeneratorInfdev20100227::SetDetailLevel(int32_t stride) {
+	Generator::SetDetailLevel(stride);
+	noiseGen1.SetDetail(OctaveBudget(16, stride));
+	noiseGen2.SetDetail(OctaveBudget(16, stride));
+	noiseGen3.SetDetail(OctaveBudget(8, stride));
+	noiseGen4.SetDetail(OctaveBudget(4, stride));
+	noiseGen5.SetDetail(OctaveBudget(4, stride));
+	noiseGen6.SetDetail(OctaveBudget(5, stride));
+}
+
+void GeneratorInfdev20100227::SampleColumns(int32_t originX, int32_t originZ, int32_t samples, int32_t stride, TileColumn *out) {
+	SetDetailLevel(stride);
+	for (int32_t pz = 0; pz < samples; ++pz) {
+		for (int32_t px = 0; px < samples; ++px) {
+			const int32_t blockX = originX + px * stride;
+			const int32_t blockZ = originZ + pz * stride;
+			float noiseGen1Value =
+				float(this->noiseGen1.GenerateOctaves(double((float)blockX / 0.03125F), 0.0,
+													  double((float)blockZ / 0.03125F)) -
+					  this->noiseGen2.GenerateOctaves(double((float)blockX / 0.015625F), 0.0,
+													  double((float)blockZ / 0.015625F))) /
+				512.0F / 4.0F;
+			float noiseGen5Value = (float)this->noiseGen5.GenerateOctaves(double((float)blockX / 4.0F),
+																		  double((float)blockZ / 4.0F));
+			float noiseGen6Value = (float)this->noiseGen6.GenerateOctaves(double((float)blockX / 8.0F),
+																		  double((float)blockZ / 8.0F)) /
+								   8.0F;
+			noiseGen5Value =
+				noiseGen5Value > 0.0F
+					? float(this->noiseGen3.GenerateOctaves(double((float)blockX * 0.25714284F * 2.0F),
+															double((float)blockZ * 0.25714284F * 2.0F)) *
+							(double)noiseGen6Value / 4.0)
+					: float(this->noiseGen4.GenerateOctaves(double((float)blockX * 0.25714284F),
+															double((float)blockZ * 0.25714284F)) *
+							(double)noiseGen6Value);
+			int32_t terrainHeight = Java::FloatToInt32(noiseGen1Value + 64.0F + noiseGen5Value);
+			if ((float)this->noiseGen5.GenerateOctaves((double)blockX, (double)blockZ) < 0.0F) {
+				terrainHeight = terrainHeight / 2 << 1;
+				if ((float)this->noiseGen5.GenerateOctaves(double(blockX / 5), double(blockZ / 5)) < 0.0F) {
+					++terrainHeight;
+				}
+			}
+			if (terrainHeight < 1)
+				terrainHeight = 1;
+			if (terrainHeight > CHUNK_HEIGHT - 1)
+				terrainHeight = CHUNK_HEIGHT - 1;
+
+			TileColumn &c = out[pz * samples + px];
+			c.height = int8_t(terrainHeight);
+			c.biome = BIOME_NONE;
+			c.temperature = 1.0f;
+			c.humidity = 0.5f;
+			if (terrainHeight < WATER_LEVEL) {
+				c.surface = BLOCK_WATER_STILL;
+				c.height = WATER_LEVEL;
+			} else {
+				c.surface = BLOCK_GRASS;
+			}
+		}
+	}
 }
 
 // Do nothing, since population didn't exist yet

@@ -1,4 +1,5 @@
 #include "biomeColors.h"
+#include "grassColorBuffer.h"
 
 /*
 Int3 GetBiomeColor(Biome biome) {
@@ -67,4 +68,20 @@ Int3 GetBiomeColor(Biome biome) {
             return Int3{0xFF, 0x00, 0xFF};
     }
     return Int3{0xFF, 0x00, 0xFF};
+}
+
+Int3 GetGrassColor(float temperature, float humidity) {
+	float humi = humidity * temperature;
+	int ti = int((1.0f - temperature) * 255.0f);
+	int hi = int((1.0f - humi) * 255.0f);
+	if (ti < 0) ti = 0;
+	if (ti > 255) ti = 255;
+	if (hi < 0) hi = 0;
+	if (hi > 255) hi = 255;
+	int lutRes = grassColorLut[hi << 8 | ti];
+	return Int3{
+		(lutRes >> 16) & 0xFF,
+		(lutRes >>  8) & 0xFF,
+		(lutRes      ) & 0xFF,
+	};
 }

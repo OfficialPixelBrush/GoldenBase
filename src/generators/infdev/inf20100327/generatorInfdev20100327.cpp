@@ -7,8 +7,8 @@ GeneratorInfdev20100327::GeneratorInfdev20100327(int64_t pSeed, float multiplier
 	noiseGen1 = NoiseOctaves<NoisePerlin>(rand, 16,16);
 	noiseGen2 = NoiseOctaves<NoisePerlin>(rand, 16,16);
 	noiseGen3 = NoiseOctaves<NoisePerlin>(rand, 8 ,8);
-	noiseGen4 = NoiseOctaves<NoisePerlin>(rand, 4 ,lowDetail ? 0 : 4);
-	noiseGen5 = NoiseOctaves<NoisePerlin>(rand, 4 ,lowDetail ? 0 : 4);
+	noiseGen4 = NoiseOctaves<NoisePerlin>(rand, 4 ,4);
+	noiseGen5 = NoiseOctaves<NoisePerlin>(rand, 4 ,4);
 	//noiseGen6 = NoiseOctaves<NoisePerlin>(rand, 5 ,5); // Unused
 	//mobSpawnerNoise = NoiseOctaves<NoisePerlin>(rand, 5, 5);
 }
@@ -162,6 +162,44 @@ Chunk GeneratorInfdev20100327::GenerateChunk(Int2 chunkPos) {
 		c.GenerateHeightMap();
 	c.state = ChunkState::Generated;
 	return c;
+}
+
+void GeneratorInfdev20100327::SetDetailLevel(int32_t stride) {
+	Generator::SetDetailLevel(stride);
+	noiseGen1.SetDetail(OctaveBudget(16, stride));
+	noiseGen2.SetDetail(OctaveBudget(16, stride));
+	noiseGen3.SetDetail(OctaveBudget(8, stride));
+	const int32_t surface = stride > 1 ? 0 : 4;
+	noiseGen4.SetDetail(surface);
+	noiseGen5.SetDetail(surface);
+}
+
+void GeneratorInfdev20100327::SampleColumns(int32_t originX, int32_t originZ, int32_t samples, int32_t stride, TileColumn *out) {
+	SetDetailLevel(stride);
+	const int32_t yCount = VerticalSamples(stride);
+	const double yStep = 128.0 / double(yCount - 1);
+
+	for (int32_t pz = 0; pz < samples; ++pz) {
+		for (int32_t px = 0; px < samples; ++px) {
+			const double ngX = double(originX + px * stride) / 4.0;
+			const double ngZ = double(originZ + pz * stride) / 4.0;
+			double column[17];
+			int32_t lastSolid = -1;
+			for (int32_t yi = 0; yi < yCount; ++yi) {
+				const double var3 = double(yi) * 32.0 / double(std::max(1, yCount - 1));
+				column[yi] = InitializeNoiseField(ngX, var3, ngZ);
+				if (column[yi] > 0.0)
+					lastSolid = yi;
+			}
+			TileColumn &c = out[pz * samples + px];
+			c.height = HeightFromDensityColumn(column, yCount, yStep);
+			(void)lastSolid;
+			c.biome = BIOME_NONE;
+			c.temperature = 1.0f;
+			c.humidity = 0.5f;
+			FinishColumnSurface(c, false, false);
+		}
+	}
 }
 
 double GeneratorInfdev20100327::InitializeNoiseField(double var1, double var3, double macroX) {

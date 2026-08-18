@@ -1,4 +1,5 @@
 #include "beta173Biome.h"
+#include "noiseLod.h"
 
 // DO NOT USE!!
 Beta173Biome::Beta173Biome() {}
@@ -28,18 +29,23 @@ Beta173Biome::Beta173Biome(int64_t seed) {
  * @param blockPos The x,z block-space coordindate of the chunk
  * @param max The size of the area that'll be generated (16x16 by default)
  */
-void Beta173Biome::GenerateBiomeMap(std::vector<Biome>& biomeMap, std::vector<double>& temperature, std::vector<double>& humidity, std::vector<double>& weirdness, Int2 blockPos, Int2 max) {
+void Beta173Biome::GenerateBiomeMap(std::vector<Biome>& biomeMap, std::vector<double>& temperature, std::vector<double>& humidity, std::vector<double>& weirdness, Int2 blockPos, Int2 max, double step) {
+	if (step <= 0.0)
+		step = 1.0;
 	// Init Biome map
 	if (biomeMap.empty() || int32_t(biomeMap.size()) < max.x * max.y) {
 		biomeMap.resize(max.x * max.y, BIOME_NONE);
 	}
 
+	const double ox = double(blockPos.x) / step;
+	const double oz = double(blockPos.y) / step;
+
 	// Get noise values
 	// We found an oversight in the original code! max.z is NEVER used for getting the noise range!
 	// Although this is irrelevant for all intents and purposes, as max.x always equals max.z
-	this->temperatureNoiseGen.GenerateOctaves(temperature, double(blockPos.x), double(blockPos.y), max.x, max.x, double(0.025f), double(0.025f), 0.25);
-	this->humidityNoiseGen.GenerateOctaves(humidity, double(blockPos.x), double(blockPos.y), max.x, max.x, double(0.05f), double(0.05f), 1.0 / 3.0);
-	this->weirdnessNoiseGen.GenerateOctaves(weirdness, double(blockPos.x), double(blockPos.y), max.x, max.x, 0.25, 0.25,
+	this->temperatureNoiseGen.GenerateOctaves(temperature, ox, oz, max.x, max.x, double(0.025f) * step, double(0.025f) * step, 0.25);
+	this->humidityNoiseGen.GenerateOctaves(humidity, ox, oz, max.x, max.x, double(0.05f) * step, double(0.05f) * step, 1.0 / 3.0);
+	this->weirdnessNoiseGen.GenerateOctaves(weirdness, ox, oz, max.x, max.x, 0.25 * step, 0.25 * step,
 											 0.5882352941176471);
 	int32_t index = 0;
 
@@ -108,4 +114,10 @@ void Beta173Biome::GenerateTemperature(std::vector<double>& temperature, std::ve
 			++index;
 		}
 	}
+}
+
+void Beta173Biome::SetDetailLevel(int32_t stride) {
+	temperatureNoiseGen.SetDetail(OctaveBudget(4, stride));
+	humidityNoiseGen.SetDetail(OctaveBudget(4, stride));
+	weirdnessNoiseGen.SetDetail(OctaveBudget(2, stride));
 }

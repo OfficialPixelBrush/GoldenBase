@@ -12,12 +12,12 @@ GeneratorBeta173::GeneratorBeta173(int64_t pSeed, float multiplier) : Generator(
 	rand = JavaRandom(this->seed);
 
 	// Init Terrain Noise
-	lowNoiseGen = NoiseOctaves<NoisePerlin>(rand, 16, 16 * multiplier);
-	highNoiseGen = NoiseOctaves<NoisePerlin>(rand, 16, 16 * multiplier);
+	lowNoiseGen = NoiseOctaves<NoisePerlin>(rand, 16, 16);
+	highNoiseGen = NoiseOctaves<NoisePerlin>(rand, 16, 16);
 	selectorNoiseGen = NoiseOctaves<NoisePerlin>(rand, 8, 8);
-	sandGravelNoiseGen = NoiseOctaves<NoisePerlin>(rand, 4, lowDetail ? 0 : 4 );
-	stoneNoiseGen = NoiseOctaves<NoisePerlin>(rand, 4, lowDetail ? 0 : 4);
-	continentalnessNoiseGen = NoiseOctaves<NoisePerlin>(rand, 10, 10 * multiplier);
+	sandGravelNoiseGen = NoiseOctaves<NoisePerlin>(rand, 4, 4);
+	stoneNoiseGen = NoiseOctaves<NoisePerlin>(rand, 4, 4);
+	continentalnessNoiseGen = NoiseOctaves<NoisePerlin>(rand, 10, 10);
 	depthNoiseGen = NoiseOctaves<NoisePerlin>(rand, 16, 16);
 	//treeDensityNoiseGen = NoiseOctaves<NoisePerlin>(rand, 8);
 
@@ -396,6 +396,139 @@ void GeneratorBeta173::GenerateTerrainNoise(std::vector<double> &terrainMap, Int
 
 				terrainMap[xyzIndex] = terrainDensity;
 				++xyzIndex;
+			}
+		}
+	}
+}
+
+void GeneratorBeta173::SetDetailLevel(int32_t stride) {
+	Generator::SetDetailLevel(stride);
+	lowNoiseGen.SetDetail(OctaveBudget(16, stride));
+	highNoiseGen.SetDetail(OctaveBudget(16, stride));
+	selectorNoiseGen.SetDetail(OctaveBudget(8, stride));
+	continentalnessNoiseGen.SetDetail(OctaveBudget(10, stride));
+	depthNoiseGen.SetDetail(OctaveBudget(16, stride));
+	const int32_t surface = stride > 1 ? 0 : 4;
+	sandGravelNoiseGen.SetDetail(surface);
+	stoneNoiseGen.SetDetail(surface);
+	biomeGen.SetDetailLevel(stride);
+}
+
+void GeneratorBeta173::FillDensityStrip(std::vector<double> &terrainMap, double coordX, double coordZ, double scaleXZ,
+										double scaleY, Int3 max, int32_t climateWidth, int32_t climateZ0) {
+	const double horiScale = scaleXZ;
+	const double vertScale = scaleY;
+	const double contScale = 1.121 * (scaleXZ / 684.412);
+	const double depthScale = 200.0 * (scaleXZ / 684.412);
+
+	this->continentalnessNoiseGen.GenerateOctaves(this->continentalnessNoiseField, coordX, 10.0, coordZ, max.x, 1, max.z,
+												  contScale, 1.0, contScale);
+	this->depthNoiseGen.GenerateOctaves(this->depthNoiseField, coordX, 10.0, coordZ, max.x, 1, max.z, depthScale, 1.0,
+										depthScale);
+	this->selectorNoiseGen.GenerateOctaves(this->selectorNoiseField, coordX, 0.0, coordZ, max.x, max.y, max.z,
+										   horiScale / 80.0, vertScale / 160.0, horiScale / 80.0);
+	this->lowNoiseGen.GenerateOctaves(this->lowNoiseField, coordX, 0.0, coordZ, max.x, max.y, max.z, horiScale, vertScale,
+									  horiScale);
+	this->highNoiseGen.GenerateOctaves(this->highNoiseField, coordX, 0.0, coordZ, max.x, max.y, max.z, horiScale, vertScale,
+									   horiScale);
+
+	terrainMap.resize(size_t(max.x) * size_t(max.y) * size_t(max.z));
+	int32_t xyzIndex = 0;
+	int32_t xzIndex = 0;
+
+	for (int32_t iX = 0; iX < max.x; ++iX) {
+		for (int32_t iZ = 0; iZ < max.z; ++iZ) {
+			const int32_t climateIndex = iX * climateWidth + climateZ0 + iZ;
+			double temp = this->temperature[climateIndex];
+			double humi = this->humidity[climateIndex] * temp;
+			humi = 1.0 - humi;
+			humi *= humi;
+			humi *= humi;
+			humi = 1.0 - humi;
+			double continentalness = (this->continentalnessNoiseField[xzIndex] + 256.0) / 512.0;
+			continentalness *= humi;
+			if (continentalness > 1.0)
+				continentalness = 1.0;
+			double depthNoise = this->depthNoiseField[xzIndex] / 8000.0;
+			if (depthNoise < 0.0)
+				depthNoise = -depthNoise * 0.3;
+			depthNoise = depthNoise * 3.0 - 2.0;
+			if (depthNoise < 0.0) {
+				depthNoise /= 2.0;
+				if (depthNoise < -1.0)
+					depthNoise = -1.0;
+				depthNoise /= 1.4;
+				depthNoise /= 2.0;
+				continentalness = 0.0;
+			} else {
+				if (depthNoise > 1.0)
+					depthNoise = 1.0;
+				depthNoise /= 8.0;
+			}
+			if (continentalness < 0.0)
+				continentalness = 0.0;
+			continentalness += 0.5;
+			depthNoise = depthNoise * 17.0 / 16.0;
+			double elevationOffset = 17.0 / 2.0 + depthNoise * 4.0;
+			++xzIndex;
+
+			for (int32_t iY = 0; iY < max.y; ++iY) {
+				const double origY = double(iY) * 16.0 / double(std::max(1, max.y - 1));
+				double terrainDensity = 0.0;
+				double densityOffset = (origY - elevationOffset) * 12.0 / continentalness;
+				if (densityOffset < 0.0)
+					densityOffset *= 4.0;
+				double lowNoise = this->lowNoiseField[xyzIndex] / 512.0;
+				double highNoise = this->highNoiseField[xyzIndex] / 512.0;
+				double selectorNoise = (this->selectorNoiseField[xyzIndex] / 10.0 + 1.0) / 2.0;
+				if (selectorNoise < 0.0) {
+					terrainDensity = lowNoise;
+				} else if (selectorNoise > 1.0) {
+					terrainDensity = highNoise;
+				} else {
+					terrainDensity = lowNoise + (highNoise - lowNoise) * selectorNoise;
+				}
+				terrainDensity -= densityOffset;
+				if (origY > 13.0) {
+					double heightEdgeFade = (origY - 13.0) / 3.0;
+					if (heightEdgeFade > 1.0)
+						heightEdgeFade = 1.0;
+					terrainDensity = (terrainDensity * (1.0 - heightEdgeFade)) + (-10.0 * heightEdgeFade);
+				}
+				terrainMap[xyzIndex] = terrainDensity;
+				++xyzIndex;
+			}
+		}
+	}
+}
+
+void GeneratorBeta173::SampleColumns(int32_t originX, int32_t originZ, int32_t samples, int32_t stride, TileColumn *out) {
+	SetDetailLevel(stride);
+	biomeGen.GenerateBiomeMap(biomeMap, temperature, humidity, weirdness, Int2{originX, originZ}, Int2{samples, samples},
+							  double(stride));
+
+	const int32_t yCount = VerticalSamples(stride);
+	const double yStep = 128.0 / double(yCount - 1);
+	const TerrainSampleCoords coords = MakeTerrainSampleCoords(originX, originZ, stride, yCount);
+	constexpr int32_t kStrip = 16;
+
+	for (int32_t z0 = 0; z0 < samples; z0 += kStrip) {
+		const int32_t nz = std::min(kStrip, samples - z0);
+		const double coordZ = double(originZ + z0 * stride) / double(stride);
+		FillDensityStrip(terrainNoiseField, coords.coordX, coordZ, coords.scaleXZ, coords.scaleY, Int3{samples, yCount, nz},
+						 samples, z0);
+
+		for (int32_t ix = 0; ix < samples; ++ix) {
+			for (int32_t iz = 0; iz < nz; ++iz) {
+				const double *col = &terrainNoiseField[(size_t(ix) * nz + iz) * yCount];
+				const int32_t idx = (z0 + iz) * samples + ix;
+				const int32_t climateIndex = ix * samples + (z0 + iz);
+				TileColumn &c = out[idx];
+				c.height = HeightFromDensityColumn(col, yCount, yStep);
+				c.biome = biomeMap[climateIndex];
+				c.temperature = float(temperature[climateIndex]);
+				c.humidity = float(humidity[climateIndex]);
+				FinishColumnSurface(c, true, false);
 			}
 		}
 	}

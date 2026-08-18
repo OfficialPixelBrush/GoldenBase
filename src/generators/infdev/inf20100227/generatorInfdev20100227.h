@@ -19,4 +19,6 @@ class GeneratorInfdev20100227 : public Generator {
 	~GeneratorInfdev20100227() = default;
 	Chunk GenerateChunk(Int2 chunkPos) override;
 	bool PopulateChunk(Int2 chunkPos) override;
+	void SetDetailLevel(int32_t stride) override;
+	void SampleColumns(int32_t originX, int32_t originZ, int32_t samples, int32_t stride, TileColumn *out) override;
 };

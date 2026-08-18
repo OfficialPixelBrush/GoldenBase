@@ -38,21 +38,23 @@ set(SOURCES
 add_executable(GoldenBase ${SOURCES})
 
 target_compile_options(GoldenBase PRIVATE
+    -O3
+    -flto
     -DNDEBUG
+    -msimd128
 )
 
 # Add the flags you had in your emcc command
 target_link_options(GoldenBase PRIVATE
     -O3
     -flto
-    -ffast-math
     -fno-rtti
     -sDISABLE_EXCEPTION_CATCHING=0
     -sWASM=1
     -sEXPORTED_RUNTIME_METHODS=[cwrap,HEAPU8]
     -sMODULARIZE=1
     -sEXPORT_NAME=createModule
-    -sINITIAL_MEMORY=32MB
+    -sINITIAL_MEMORY=64MB
     -sALLOW_MEMORY_GROWTH=0
     -sASSERTIONS=0
     -sDEMANGLE_SUPPORT=0

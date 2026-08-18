@@ -9,8 +9,8 @@ GeneratorInfdev20100420::GeneratorInfdev20100420(int64_t pSeed, float multiplier
 	noiseGen1 = NoiseOctaves<NoisePerlin>(rand, 16,16);
 	noiseGen2 = NoiseOctaves<NoisePerlin>(rand, 16,16);
 	noiseGen3 = NoiseOctaves<NoisePerlin>(rand, 8 , 8);
-	noiseGen4 = NoiseOctaves<NoisePerlin>(rand, lowDetail ? 0 : 4 , 4);
-	noiseGen5 = NoiseOctaves<NoisePerlin>(rand, lowDetail ? 0 : 4 , 4);
+	noiseGen4 = NoiseOctaves<NoisePerlin>(rand, 4 , 4);
+	noiseGen5 = NoiseOctaves<NoisePerlin>(rand, 4 , 4);
 	//noiseGen6 = NoiseOctaves<NoisePerlin>(rand, 5 , 5); // Unused
 	//mobSpawnerNoise = NoiseOctaves<NoisePerlin>(rand, 5, 5);
 }
@@ -186,6 +186,74 @@ Chunk GeneratorInfdev20100420::GenerateChunk(Int2 chunkPos) {
 		c.GenerateHeightMap();
 	c.state = ChunkState::Generated;
 	return c;
+}
+
+void GeneratorInfdev20100420::SetDetailLevel(int32_t stride) {
+	Generator::SetDetailLevel(stride);
+	noiseGen1.SetDetail(OctaveBudget(16, stride));
+	noiseGen2.SetDetail(OctaveBudget(16, stride));
+	noiseGen3.SetDetail(OctaveBudget(8, stride));
+	const int32_t surface = stride > 1 ? 0 : 4;
+	noiseGen4.SetDetail(surface);
+	noiseGen5.SetDetail(surface);
+}
+
+void GeneratorInfdev20100420::FillDensityStrip(std::vector<double> &terrainMap, double coordX, double coordZ, double scaleXZ,
+											   double scaleY, Int3 max) {
+	noiseGen3.GenerateOctaves(noise3, coordX, 0.0, coordZ, max.x, max.y, max.z, scaleXZ / 80.0, scaleY / 160.0, scaleXZ / 80.0);
+	noiseGen1.GenerateOctaves(noise1, coordX, 0.0, coordZ, max.x, max.y, max.z, scaleXZ, scaleY, scaleXZ);
+	noiseGen2.GenerateOctaves(noise2, coordX, 0.0, coordZ, max.x, max.y, max.z, scaleXZ, scaleY, scaleXZ);
+
+	terrainMap.resize(size_t(max.x) * size_t(max.y) * size_t(max.z));
+	int32_t noiseIdx = 0;
+	for (int32_t noiseX = 0; noiseX < max.x; ++noiseX) {
+		for (int32_t noiseZ = 0; noiseZ < max.z; ++noiseZ) {
+			for (int32_t noiseY = 0; noiseY < max.y; ++noiseY) {
+				const double origY = double(noiseY) * 16.0 / double(std::max(1, max.y - 1));
+				double densityOffset = (origY - 8.5) * 12.0;
+				if (densityOffset < 0.0)
+					densityOffset *= 2.0;
+				double n1 = noise1[noiseIdx] / 512.0;
+				double n2 = noise2[noiseIdx] / 512.0;
+				double n3t = (noise3[noiseIdx] / 10.0 + 1.0) / 2.0;
+				double density;
+				if (n3t < 0.0)
+					density = n1;
+				else if (n3t > 1.0)
+					density = n2;
+				else
+					density = n1 + (n2 - n1) * n3t;
+				density -= densityOffset;
+				terrainMap[noiseIdx] = density;
+				++noiseIdx;
+			}
+		}
+	}
+}
+
+void GeneratorInfdev20100420::SampleColumns(int32_t originX, int32_t originZ, int32_t samples, int32_t stride, TileColumn *out) {
+	SetDetailLevel(stride);
+	const int32_t yCount = VerticalSamples(stride);
+	const double yStep = 128.0 / double(yCount - 1);
+	const TerrainSampleCoords coords = MakeTerrainSampleCoords(originX, originZ, stride, yCount);
+	constexpr int32_t kStrip = 16;
+
+	for (int32_t z0 = 0; z0 < samples; z0 += kStrip) {
+		const int32_t nz = std::min(kStrip, samples - z0);
+		const double coordZ = double(originZ + z0 * stride) / double(stride);
+		FillDensityStrip(noiseArray, coords.coordX, coordZ, coords.scaleXZ, coords.scaleY, Int3{samples, yCount, nz});
+		for (int32_t ix = 0; ix < samples; ++ix) {
+			for (int32_t iz = 0; iz < nz; ++iz) {
+				const double *col = &noiseArray[(size_t(ix) * nz + iz) * yCount];
+				TileColumn &c = out[(z0 + iz) * samples + ix];
+				c.height = HeightFromDensityColumn(col, yCount, yStep);
+				c.biome = BIOME_NONE;
+				c.temperature = 1.0f;
+				c.humidity = 0.5f;
+				FinishColumnSurface(c, false, false);
+			}
+		}
+	}
 }
 
 bool GeneratorInfdev20100420::PopulateChunk(Int2 chunkPos) {

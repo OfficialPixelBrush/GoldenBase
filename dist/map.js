@@ -245,7 +245,7 @@ const SlimeOverlay = L.GridLayer.extend({
         const tileZoom = 0;
         const zoomDiff = tileZoom - coords.z;
         // Each tile at zoom 0 is 64px = 4 chunks wide, so multiply by 4
-        const chunksPerTile = Math.pow(2, zoomDiff) * 4;
+        const chunksPerTile = Math.pow(2, zoomDiff) * (size.x / 16);
 
         const baseChunkX = coords.x * chunksPerTile;
         const baseChunkZ = coords.y * chunksPerTile;
@@ -299,7 +299,8 @@ let mapCenter = { x: 0, y: 0 };
 window.addEventListener('load', () => {
   createModule({
       onRuntimeInitialized: function() {
-            const scale = 16*4; // pixels per block
+            const getTileSize = this.cwrap('getTileSize', 'number', []);
+            const scale = getTileSize(); // pixels per tile; 1:1 is 1px per block
             const Module = this;
             window.Module = Module;
 
@@ -307,7 +308,7 @@ window.addEventListener('load', () => {
 
             const map = L.map('map', {
                 crs: L.CRS.Simple,
-                minZoom: -4,  // allows zooming out 4 levels (matches MAX_ZOOM_OUT in main.cpp)
+                minZoom: -8,  // allows zooming out 8 levels (matches MAX_ZOOM_OUT in main.cpp)
                 maxZoom: 2,
                 noWrap: true,
                 keepBuffer: 10   // default is 2
@@ -528,8 +529,8 @@ window.addEventListener('load', () => {
                 
                 mapCenter.y = point.y / scale;
 
-                const blockPosX = mapCenter.x*16*4;
-                const blockPosZ = mapCenter.y*16*4;
+                const blockPosX = mapCenter.x * scale;
+                const blockPosZ = mapCenter.y * scale;
                 document.getElementById('coords').textContent = `Center: ${(blockPosX).toFixed(2)}, ${(blockPosZ).toFixed(2)}`;
                 document.getElementById('bigCoords').textContent = `Cnk: ${((blockPosX/16)-0.5).toFixed(0)}, ${((blockPosZ/16)-0.5).toFixed(0)} / Rgn: ${((blockPosX/512)-0.5).toFixed(0)}, ${((blockPosZ/512)-0.5).toFixed(0)}`;
             }
@@ -593,7 +594,7 @@ window.addEventListener('load', () => {
             const slimeLayer = new SlimeOverlay({
                 pane: 'gridPane',           // sits above tiles, below UI
                 tileSize: scale,
-                minZoom: -4,
+                minZoom: -8,
                 maxZoom: 2,
                 noWrap: true,
                 opacity: 1,
@@ -667,7 +668,7 @@ window.addEventListener('load', () => {
                 pane: 'gridPane',
                 tileSize: scale,
                 scale: 1,
-                minZoom: -4,
+                minZoom: -8,
                 maxZoom: 3,
                 noWrap: true
             }).addTo(map);
@@ -723,7 +724,7 @@ window.addEventListener('load', () => {
                 new DynamicLayer({
                     pane: 'tilePane',
                     tileSize: scale,
-                    minZoom: -4,  // matches map minZoom and MAX_ZOOM_OUT in main.cpp
+                    minZoom: -8,  // matches map minZoom and MAX_ZOOM_OUT in main.cpp
                     maxZoom: 3,
                     noWrap: true,
                 }).addTo(map);

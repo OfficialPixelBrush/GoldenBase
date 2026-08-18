@@ -40,6 +40,8 @@ class GeneratorAlpha112_01 : public Generator {
 
 	void GenerateTerrain(Int2 chunkPos, Chunk &c);
 	void GenerateTerrainNoise(std::vector<double> &terrainMap, Int3 chunkPos, Int3 max);
+	void FillDensityStrip(std::vector<double> &terrainMap, double coordX, double coordZ, double scaleXZ, double scaleY,
+						  Int3 max);
 	void ReplaceBlocksForBiome(Int2 chunkPos, Chunk &c);
 	bool PseudoPopulateChunk(Int2 chunkPos, Chunk &c);
 
@@ -48,5 +50,7 @@ class GeneratorAlpha112_01 : public Generator {
 	~GeneratorAlpha112_01() = default;
 	Chunk GenerateChunk(Int2 chunkPos) override;
 	bool PopulateChunk(Int2 chunkPos) override;
+	void SetDetailLevel(int32_t stride) override;
+	void SampleColumns(int32_t originX, int32_t originZ, int32_t samples, int32_t stride, TileColumn *out) override;
 	bool snowCovered = false;
 };

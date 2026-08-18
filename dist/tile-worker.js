@@ -9,6 +9,7 @@ self.onmessage = async (e) => {
         Module = await createModule();
         getTile = Module.cwrap('getTile', 'number', ['number', 'number', 'number', 'number']);
         updateGenAndSeed = Module.cwrap('UpdateGenAndSeed', 'void', ['string', 'number']);
+        const getTileSize = Module.cwrap('getTileSize', 'number', []);
 
         // Drain any update that arrived before we were ready
         if (pendingGenUpdate) {
@@ -17,7 +18,7 @@ self.onmessage = async (e) => {
             updateGenAndSeed(seed, genId);
         }
 
-        self.postMessage({ type: 'ready' });
+        self.postMessage({ type: 'ready', tileSize: getTileSize() });
         return;
     }
 

@@ -6,12 +6,12 @@ GeneratorInfdev20100611::GeneratorInfdev20100611(int64_t pSeed, float multiplier
 	rand = JavaRandom(this->seed);
 	if (!infdev20100616)
 		JavaRandom(this->seed);
-	noiseGen1 = NoiseOctaves<NoisePerlin>(rand, 16, 16 * multiplier, false);
-	noiseGen2 = NoiseOctaves<NoisePerlin>(rand, 16, 16 * multiplier, false);
-	noiseGen3 = NoiseOctaves<NoisePerlin>(rand,  8,  8 * multiplier, false);
-	noiseGen4 = NoiseOctaves<NoisePerlin>(rand,  4, lowDetail ? 0 : 4, false);
-	noiseGen5 = NoiseOctaves<NoisePerlin>(rand,  4, lowDetail ? 0 : 4, false);
-	noiseGen6 = NoiseOctaves<NoisePerlin>(rand, 10, 10 * multiplier, false);
+	noiseGen1 = NoiseOctaves<NoisePerlin>(rand, 16, 16, false);
+	noiseGen2 = NoiseOctaves<NoisePerlin>(rand, 16, 16, false);
+	noiseGen3 = NoiseOctaves<NoisePerlin>(rand,  8,  8, false);
+	noiseGen4 = NoiseOctaves<NoisePerlin>(rand,  4,  4, false);
+	noiseGen5 = NoiseOctaves<NoisePerlin>(rand,  4,  4, false);
+	noiseGen6 = NoiseOctaves<NoisePerlin>(rand, 10, 10, false);
 	noiseGen7 = NoiseOctaves<NoisePerlin>(rand, 16, 16, false);
 	//mobSpawnerNoise = NoiseOctaves<NoisePerlin>(rand, 8, 8, false);
 }
@@ -224,6 +224,105 @@ Chunk GeneratorInfdev20100611::GenerateChunk(Int2 chunkPos) {
 	}
 	c.state = ChunkState::Generated;
 	return c;
+}
+
+void GeneratorInfdev20100611::SetDetailLevel(int32_t stride) {
+	Generator::SetDetailLevel(stride);
+	noiseGen1.SetDetail(OctaveBudget(16, stride));
+	noiseGen2.SetDetail(OctaveBudget(16, stride));
+	noiseGen3.SetDetail(OctaveBudget(8, stride));
+	noiseGen6.SetDetail(OctaveBudget(10, stride));
+	noiseGen7.SetDetail(OctaveBudget(16, stride));
+	const int32_t surface = stride > 1 ? 0 : 4;
+	noiseGen4.SetDetail(surface);
+	noiseGen5.SetDetail(surface);
+}
+
+void GeneratorInfdev20100611::FillDensityStrip(std::vector<double> &terrainMap, double coordX, double coordZ, double scaleXZ,
+											   double scaleY, Int3 max) {
+	const double ngStep = scaleXZ / 684.412;
+	noiseGen6.GenerateOctaves(noise6, coordX, 0.0, coordZ, max.x, 1, max.z, 1.0 * ngStep, 0.0, 1.0 * ngStep);
+	noiseGen7.GenerateOctaves(noise7, coordX, 0.0, coordZ, max.x, 1, max.z, 100.0 * ngStep, 0.0, 100.0 * ngStep);
+	noiseGen3.GenerateOctaves(noise3, coordX, 0.0, coordZ, max.x, max.y, max.z, scaleXZ / 80.0, scaleY / 160.0, scaleXZ / 80.0);
+	noiseGen1.GenerateOctaves(noise1, coordX, 0.0, coordZ, max.x, max.y, max.z, scaleXZ, scaleY, scaleXZ);
+	noiseGen2.GenerateOctaves(noise2, coordX, 0.0, coordZ, max.x, max.y, max.z, scaleXZ, scaleY, scaleXZ);
+
+	terrainMap.resize(size_t(max.x) * size_t(max.y) * size_t(max.z));
+	int32_t noiseIdx = 0;
+	int32_t noiseIdx2d = 0;
+	for (int32_t noiseX = 0; noiseX < max.x; ++noiseX) {
+		for (int32_t noiseZ = 0; noiseZ < max.z; ++noiseZ) {
+			double n6 = (noise6[noiseIdx2d] + 256.0) / 512.0;
+			if (n6 > 1.0)
+				n6 = 1.0;
+			double n7 = noise7[noiseIdx2d] / 8000.0;
+			if (n7 < 0.0)
+				n7 = -n7;
+			n7 = n7 * 3.0 - 3.0;
+			if (n7 < 0.0) {
+				n7 /= 2.0;
+				if (n7 < -1.0)
+					n7 = -1.0;
+				n7 /= 1.4;
+				if (infdev20100616)
+					n7 /= 2.0;
+				n6 = 0.0;
+			} else {
+				if (n7 > 1.0)
+					n7 = 1.0;
+				n7 /= 6.0;
+			}
+			n6 += 0.5;
+			n7 = n7 * 17.0 / 16.0;
+			double var65 = 8.5 + n7 * 4.0;
+			++noiseIdx2d;
+
+			for (int32_t noiseY = 0; noiseY < max.y; ++noiseY) {
+				const double origY = double(noiseY) * 16.0 / double(std::max(1, max.y - 1));
+				double densityOffset = (origY - var65) * 12.0 / n6;
+				if (densityOffset < 0.0)
+					densityOffset *= 4.0;
+				double n1 = noise1[noiseIdx] / 512.0;
+				double n2 = noise2[noiseIdx] / 512.0;
+				double n3t = (noise3[noiseIdx] / 10.0 + 1.0) / 2.0;
+				double density;
+				if (n3t < 0.0)
+					density = n1;
+				else if (n3t > 1.0)
+					density = n2;
+				else
+					density = n1 + (n2 - n1) * n3t;
+				density -= densityOffset;
+				terrainMap[noiseIdx] = density;
+				++noiseIdx;
+			}
+		}
+	}
+}
+
+void GeneratorInfdev20100611::SampleColumns(int32_t originX, int32_t originZ, int32_t samples, int32_t stride, TileColumn *out) {
+	SetDetailLevel(stride);
+	const int32_t yCount = VerticalSamples(stride);
+	const double yStep = 128.0 / double(yCount - 1);
+	const TerrainSampleCoords coords = MakeTerrainSampleCoords(originX, originZ, stride, yCount);
+	constexpr int32_t kStrip = 16;
+
+	for (int32_t z0 = 0; z0 < samples; z0 += kStrip) {
+		const int32_t nz = std::min(kStrip, samples - z0);
+		const double coordZ = double(originZ + z0 * stride) / double(stride);
+		FillDensityStrip(noiseArray, coords.coordX, coordZ, coords.scaleXZ, coords.scaleY, Int3{samples, yCount, nz});
+		for (int32_t ix = 0; ix < samples; ++ix) {
+			for (int32_t iz = 0; iz < nz; ++iz) {
+				const double *col = &noiseArray[(size_t(ix) * nz + iz) * yCount];
+				TileColumn &c = out[(z0 + iz) * samples + ix];
+				c.height = HeightFromDensityColumn(col, yCount, yStep);
+				c.biome = BIOME_NONE;
+				c.temperature = 1.0f;
+				c.humidity = 0.5f;
+				FinishColumnSurface(c, false, false);
+			}
+		}
+	}
 }
 
 bool GeneratorInfdev20100611::PopulateChunk(Int2 chunkPos) {
