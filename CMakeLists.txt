@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.16)
 project(GoldenBase)
 
-# Use Emscripten compiler
-set(CMAKE_CXX_COMPILER emcc)
+# emcmake already sets em++ / emcc. Forcing emcc here makes newer
+# Emscripten link as C and drop libc++, so operator new / std::string fail.
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
 
