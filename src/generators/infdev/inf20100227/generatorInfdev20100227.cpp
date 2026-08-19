@@ -1,5 +1,77 @@
 #include "generatorInfdev20100227.h"
 #include "java_math.h"
+#include <algorithm>
+#include <cstdint>
+
+namespace {
+constexpr int32_t kPyramidRegion = 1024;
+
+Int2 InfdevPyramidOrigin(JavaRandom &rand, int32_t regionX, int32_t regionZ) {
+	// Java int overflow on the seed mix.
+	rand.setSeed(int64_t(int32_t(regionX + regionZ * 13871)));
+	return Int2{(regionX << 10) + CHUNK_HEIGHT + rand.nextInt(512),
+				(regionZ << 10) + CHUNK_HEIGHT + rand.nextInt(512)};
+}
+
+int32_t PyramidTopFromChebyshev(int32_t dist) {
+	int32_t top = (CHUNK_HEIGHT - 1) - dist;
+	if (top == 0xFF)
+		top = 1;
+	return top;
+}
+
+int32_t ChebyshevToRect(int32_t px, int32_t pz, int32_t x0, int32_t x1, int32_t z0, int32_t z1) {
+	int32_t dx = 0;
+	if (px < x0)
+		dx = x0 - px;
+	else if (px > x1)
+		dx = px - x1;
+	int32_t dz = 0;
+	if (pz < z0)
+		dz = z0 - pz;
+	else if (pz > z1)
+		dz = pz - z1;
+	return dx > dz ? dx : dz;
+}
+
+void ApplyInfdevPyramid(JavaRandom &rand, int32_t blockX, int32_t blockZ, int32_t stride, TileColumn &col) {
+	int32_t x0 = blockX;
+	int32_t z0 = blockZ;
+	int32_t x1 = blockX;
+	int32_t z1 = blockZ;
+	// Expand to the whole sample cell so ~255-block pyramids still register
+	// when a pixel is larger than one block. Past one region per pixel, every
+	// cell would contain a pyramid — keep point sampling there.
+	if (stride > 1 && stride < kPyramidRegion) {
+		x1 = blockX + stride - 1;
+		z1 = blockZ + stride - 1;
+	}
+
+	int32_t rx0 = x0 / kPyramidRegion;
+	int32_t rx1 = x1 / kPyramidRegion;
+	int32_t rz0 = z0 / kPyramidRegion;
+	int32_t rz1 = z1 / kPyramidRegion;
+	if (rx1 < rx0)
+		std::swap(rx0, rx1);
+	if (rz1 < rz0)
+		std::swap(rz0, rz1);
+
+	int32_t bestTop = -1;
+	for (int32_t rx = rx0; rx <= rx1; ++rx) {
+		for (int32_t rz = rz0; rz <= rz1; ++rz) {
+			const Int2 origin = InfdevPyramidOrigin(rand, rx, rz);
+			const int32_t dist = ChebyshevToRect(origin.x, origin.y, x0, x1, z0, z1);
+			bestTop = std::max(bestTop, PyramidTopFromChebyshev(dist));
+		}
+	}
+
+	if (bestTop > int32_t(col.height)) {
+		bestTop = std::clamp(bestTop, 1, CHUNK_HEIGHT - 1);
+		col.height = int8_t(bestTop);
+		col.surface = BLOCK_BRICKS;
+	}
+}
+} // namespace
 
 GeneratorInfdev20100227::GeneratorInfdev20100227(int64_t pSeed, float multiplier) : Generator(pSeed, multiplier) {
 	this->seed = pSeed;
@@ -168,6 +240,7 @@ void GeneratorInfdev20100227::SampleColumns(int32_t originX, int32_t originZ, in
 			} else {
 				c.surface = BLOCK_GRASS;
 			}
+			ApplyInfdevPyramid(this->rand, blockX, blockZ, stride, c);
 		}
 	}
 }
