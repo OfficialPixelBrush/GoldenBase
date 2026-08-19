@@ -752,8 +752,8 @@ window.addEventListener('load', () => {
                                     <label for="colorMode">Coloration</label>
                                     <select id="colorMode">
                                         <option value="none">None</option>
-                                        <option value="biome" selected>Biome Colors</option>
-                                        <option value="accurate">Accurate Colors</option>
+                                        <option value="biome" selected>Biome</option>
+                                        <option value="accurate">Accurate</option>
                                         <option value="topology">Topology</option>
                                         <option value="map">Map Item</option>
                                     </select><br>

@@ -223,8 +223,14 @@ void ApplyHandheldMapShade(int scale, int stride, int32_t originX, int32_t origi
 }
 
 Int3 ColorModeTint(int colorMode, Biome biome, float temperature, float humidity) {
-    if (colorMode == 2)
+    if (colorMode == 2) {
+        // Pre-biome worlds have no climate map. Reuse the Biome-mode fallback
+        // instead of sampling grass.png with dummy temp/humidity (that hits
+        // unused white texels).
+        if (biome == BIOME_NONE)
+            return GetBiomeColor(BIOME_NONE);
         return GetGrassColor(temperature, humidity);
+    }
     if (colorMode == 1)
         return GetBiomeColor(biome);
     return GetBiomeColor(BIOME_NONE);
@@ -402,7 +408,7 @@ extern "C" {
         16  -> Snow World, if world is snow world
         32  -> Color mode biome (simplified distinct biome colors)
         64  -> Hillshade (slope shading; does not change the color mode)
-        128 -> Color mode accurate (vanilla temp/humidity grass tint)
+        128 -> Color mode grass (vanilla temp/humidity grass colormap)
         256 -> Color mode topology (hypsometric elevation tint)
         512 -> Color mode map (beta 1.7.3 held-map MapColor + slope/water shade)
         ...

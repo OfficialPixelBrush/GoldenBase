@@ -1,5 +1,5 @@
 #include "generatorInfdev20100227.h"
-#include "java_math.h"
+#include "javaMath.h"
 #include <algorithm>
 #include <cstdint>
 
