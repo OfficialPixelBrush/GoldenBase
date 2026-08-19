@@ -772,13 +772,13 @@ window.addEventListener('load', () => {
                                     <label for="check_slime_chunks" id="check_slime_chunks_checkmark">Slime Chunks</label><br>
 
                                     <input type="checkbox" id="check_farlands" checked>
-                                    <label for="check_farlands" id="check_farlands_label">Far Lands</label><br>
-
-                                    <input type="checkbox" id="check_world_boundary" checked>
-                                    <label for="check_world_boundary" id="check_world_boundary_label">Non-solid</label><br>
+                                    <label for="check_farlands" id="check_farlands_label">Far Lands Coloration</label><br>
 
                                     <input type="checkbox" id="check_region_labels" checked>
-                                    <label for="check_region_labels">Region labels</label><br>
+                                    <label for="check_region_labels">Far Lands Region labels</label><br>
+
+                                    <input type="checkbox" id="check_world_boundary" checked>
+                                    <label for="check_world_boundary" id="check_world_boundary_label">Non-solid Terrain / "Fake chunks"</label><br>
 
                                     <input type="checkbox" id="check_chunk_grid">
                                     <label for="check_chunk_grid">Chunk Grid</label><br>
@@ -1161,11 +1161,11 @@ window.addEventListener('load', () => {
                 const viewBounds = bounds.pad(1);
 
                 if (F > 0) {
-                    labelRing('Far Lands', F, farOuter, '#ff6a4a', false, viewBounds);
+                    labelRing('Edge Far Lands', F, farOuter, '#ff6a4a', false, viewBounds);
                     labelRing('Corner Far Lands', F, farOuter, '#ffb040', true, viewBounds);
                 }
                 if (FF > 0) {
-                    labelRing('Farther Lands', FF, FARLANDS_EXTENT, '#ffc266', false, viewBounds);
+                    labelRing('Edge Farther Lands', FF, FARLANDS_EXTENT, '#ffc266', false, viewBounds);
                     labelRing('Corner Farther Lands', FF, FARLANDS_EXTENT, '#ffe14a', true, viewBounds);
                 }
             }
