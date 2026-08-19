@@ -109,13 +109,12 @@ function getOptions() {
     return opt_value;
 }
 
-function requestTile(x, y, z, tileSize) {
-    const genId = currentGenId;
+function emptyTileBytes(tileSize) {
+    return new Uint8ClampedArray(tileSize * tileSize * 4);
+}
+
+function requestWorkerTile(x, y, z, tileSize, genId) {
     return new Promise((resolve) => {
-        if (tileFullyOutsideInt32(x, y, z, tileSize)) {
-            resolve(new Uint8ClampedArray(tileSize * tileSize * 4));
-            return;
-        }
         const id = tileIdCounter++;
         pendingTiles[id] = (bytes) => {
             delete pendingTiles[id];
@@ -125,6 +124,77 @@ function requestTile(x, y, z, tileSize) {
         queue.push({ x, y, z, id, tileSize, options: getOptions(), epoch: genId });
         dispatch();
     });
+}
+
+// WASM can only generate down to zoom -23. Further out, scale those tiles into
+// the larger Leaflet tile so the 32-bit world stays visible instead of blank.
+function downsampleTerrainTile(tx, ty, z, tileSize, genId) {
+    const bpp = Math.pow(2, -z);
+    const worldW = tileSize * bpp;
+    const wx0 = tx * worldW;
+    const wz0 = ty * worldW;
+    const parentBpp = Math.pow(2, -TERRAIN_MIN_ZOOM);
+    const parentWorldW = tileSize * parentBpp;
+    const destSize = parentWorldW / bpp;
+    if (destSize < 0.25)
+        return Promise.resolve(emptyTileBytes(tileSize));
+
+    const ptx0 = Math.floor(wx0 / parentWorldW);
+    const ptz0 = Math.floor(wz0 / parentWorldW);
+    const ptx1 = Math.ceil((wx0 + worldW) / parentWorldW) - 1;
+    const ptz1 = Math.ceil((wz0 + worldW) / parentWorldW) - 1;
+
+    const fetches = [];
+    for (let pz = ptz0; pz <= ptz1; pz++) {
+        for (let px = ptx0; px <= ptx1; px++) {
+            if (tileFullyOutsideInt32(px, pz, TERRAIN_MIN_ZOOM, tileSize))
+                continue;
+            fetches.push(
+                requestWorkerTile(px, pz, TERRAIN_MIN_ZOOM, tileSize, genId).then((bytes) => ({
+                    px,
+                    pz,
+                    bytes,
+                }))
+            );
+        }
+    }
+    if (!fetches.length)
+        return Promise.resolve(emptyTileBytes(tileSize));
+
+    return Promise.all(fetches).then((parts) => {
+        if (genId !== currentGenId)
+            return null;
+        const out = document.createElement('canvas');
+        out.width = tileSize;
+        out.height = tileSize;
+        const ctx = out.getContext('2d');
+        ctx.imageSmoothingEnabled = destSize <= 32;
+        ctx.imageSmoothingQuality = 'high';
+        const scratch = document.createElement('canvas');
+        scratch.width = tileSize;
+        scratch.height = tileSize;
+        const scratchCtx = scratch.getContext('2d');
+        const img = scratchCtx.createImageData(tileSize, tileSize);
+        for (const part of parts) {
+            if (!part.bytes)
+                continue;
+            img.data.set(part.bytes);
+            scratchCtx.putImageData(img, 0, 0);
+            const destX = (part.px * parentWorldW - wx0) / bpp;
+            const destZ = (part.pz * parentWorldW - wz0) / bpp;
+            ctx.drawImage(scratch, destX, destZ, destSize, destSize);
+        }
+        return ctx.getImageData(0, 0, tileSize, tileSize).data;
+    });
+}
+
+function requestTile(x, y, z, tileSize) {
+    const genId = currentGenId;
+    if (tileFullyOutsideInt32(x, y, z, tileSize))
+        return Promise.resolve(emptyTileBytes(tileSize));
+    if (z < TERRAIN_MIN_ZOOM)
+        return downsampleTerrainTile(x, y, z, tileSize, genId);
+    return requestWorkerTile(x, y, z, tileSize, genId);
 }
 
 function dispatch() {
@@ -314,10 +384,19 @@ const SlimeOverlay = L.GridLayer.extend({
 // Classic Far Lands (inf-20100327+): finest Perlin octave samples
 // (world/4)*684.412, overflowing a Java int at ±12,550,821.
 // Farther Lands: selector noise at that scale / 80, overflowing at ±1,004,065,811.
+// Fartherer / Farthest Lands: the same overflows at the 64-bit integer limit.
 // Infdev 20100227–20100325: solid stone wall at ±33,554,432 (2^25).
 const INT32_MIN = -2147483648;
 const INT32_MAX = 2147483647;
-const FARLANDS_EXTENT = INT32_MAX;
+const TERRAIN_MIN_ZOOM = -23;
+const MAP_MIN_ZOOM = -55;
+const LIMIT_32 = INT32_MAX;
+const CHUNK_OVERWRITE = 2 ** 35;           // 34,359,738,368
+const STRIPE_LANDS = 2 ** 53;              // 9,007,199,254,740,992
+const LIMIT_64 = 2 ** 63;                  // 9,223,372,036,854,775,808
+const OVERLAY_EXTENT = 2 ** 66;            // padding past 64-bit so the border is visible
+const FARTHERER_LANDS_AT = 53905378846979747;
+const FARTHEST_LANDS_AT = 4312430307758379832;
 
 function tileFullyOutsideInt32(tx, tz, zoom, tilePx) {
     const bpp = Math.pow(2, -zoom);
@@ -330,14 +409,27 @@ function tileFullyOutsideInt32(tx, tz, zoom, tilePx) {
     return x1 <= INT32_MIN || x0 >= hi || z1 <= INT32_MIN || z0 >= hi;
 }
 
-function clampBlockCoord(n) {
+function clampWorldCoord(n) {
     if (!Number.isFinite(n))
         return 0;
-    if (n < INT32_MIN)
-        return INT32_MIN;
-    if (n > INT32_MAX)
-        return INT32_MAX;
+    if (n < -OVERLAY_EXTENT)
+        return -OVERLAY_EXTENT;
+    if (n > OVERLAY_EXTENT)
+        return OVERLAY_EXTENT;
     return n;
+}
+
+function withinInt32(n) {
+    return n >= INT32_MIN && n <= INT32_MAX;
+}
+
+function formatWorldCoord(n) {
+    if (!Number.isFinite(n))
+        return String(n);
+    const a = Math.abs(n);
+    if (a >= 1e15)
+        return n.toExponential(6);
+    return n.toFixed(2);
 }
 
 function blockToLatLng(x, z) {
@@ -359,6 +451,74 @@ function fartherlandsThreshold(genId) {
     return 1004065811;
 }
 
+function farlandsRings(genId) {
+    const F = farlandsThreshold(genId);
+    if (!F)
+        return [];
+    const FF = fartherlandsThreshold(genId);
+    if (!FF) {
+        return [{
+            inner: F,
+            outer: LIMIT_32,
+            edge: '#ff2200',
+            corner: '#ff9900',
+            edgeLabel: 'Edge Far Lands',
+            cornerLabel: 'Corner Far Lands',
+            edgeLabelColor: '#ff6a4a',
+            cornerLabelColor: '#ffb040',
+        }];
+    }
+    return [
+        {
+            inner: F,
+            outer: FF,
+            edge: '#ff2200',
+            corner: '#ff9900',
+            edgeLabel: 'Edge Far Lands',
+            cornerLabel: 'Corner Far Lands',
+            edgeLabelColor: '#ff6a4a',
+            cornerLabelColor: '#ffb040',
+        },
+        {
+            inner: FF,
+            outer: FARTHERER_LANDS_AT,
+            edge: '#ffb35c',
+            corner: '#ffdc4a',
+            edgeLabel: 'Edge Farther Lands',
+            cornerLabel: 'Corner Farther Lands',
+            edgeLabelColor: '#ffc266',
+            cornerLabelColor: '#ffe14a',
+        },
+        {
+            inner: FARTHERER_LANDS_AT,
+            outer: FARTHEST_LANDS_AT,
+            edge: '#ffe566',
+            corner: '#fff4a8',
+            edgeLabel: 'Edge Fartherer Lands',
+            cornerLabel: 'Corner Fartherer Lands',
+            edgeLabelColor: '#ffe97a',
+            cornerLabelColor: '#fff8c4',
+        },
+        {
+            inner: FARTHEST_LANDS_AT,
+            outer: LIMIT_64,
+            edge: '#9ee86a',
+            corner: '#c8f59a',
+            edgeLabel: 'Edge Farthest Lands',
+            cornerLabel: 'Corner Farthest Lands',
+            edgeLabelColor: '#b6f08a',
+            cornerLabelColor: '#dcffb0',
+        },
+    ];
+}
+
+const WORLD_LIMITS = [
+    { at: LIMIT_32, label: '32-bit Limit', color: '#9fd9ff' },
+    { at: CHUNK_OVERWRITE, label: 'Chunk Overwrite', color: '#cbb6ff' },
+    { at: STRIPE_LANDS, label: 'Stripe Lands', color: '#f0c8ff' },
+    { at: LIMIT_64, label: '64-bit Limit', color: '#2ee6c8' },
+];
+
 // Overlays follow the generator last applied with Update Gen, not the dropdown.
 let appliedGenId = 9;
 
@@ -378,6 +538,28 @@ function fillWorldRect(ctx, tileX0, tileZ0, bpp, tilePx, wx0, wz0, wx1, wz1) {
     );
 }
 
+function fillEdgeBand(ctx, tileX0, tileZ0, bpp, tilePx, inner, outer) {
+    fillWorldRect(ctx, tileX0, tileZ0, bpp, tilePx, inner, -inner, outer, inner);
+    fillWorldRect(ctx, tileX0, tileZ0, bpp, tilePx, -outer, -inner, -inner, inner);
+    fillWorldRect(ctx, tileX0, tileZ0, bpp, tilePx, -inner, inner, inner, outer);
+    fillWorldRect(ctx, tileX0, tileZ0, bpp, tilePx, -inner, -outer, inner, -inner);
+}
+
+function fillCornerSquares(ctx, tileX0, tileZ0, bpp, tilePx, inner, outer) {
+    fillWorldRect(ctx, tileX0, tileZ0, bpp, tilePx, inner, inner, outer, outer);
+    fillWorldRect(ctx, tileX0, tileZ0, bpp, tilePx, inner, -outer, outer, -inner);
+    fillWorldRect(ctx, tileX0, tileZ0, bpp, tilePx, -outer, inner, -inner, outer);
+    fillWorldRect(ctx, tileX0, tileZ0, bpp, tilePx, -outer, -outer, -inner, -inner);
+}
+
+function strokeWorldSquare(ctx, tileX0, tileZ0, bpp, tilePx, r) {
+    const t = bpp * 2;
+    fillWorldRect(ctx, tileX0, tileZ0, bpp, tilePx, -r, -r, r, -r + t);
+    fillWorldRect(ctx, tileX0, tileZ0, bpp, tilePx, -r, r - t, r, r);
+    fillWorldRect(ctx, tileX0, tileZ0, bpp, tilePx, -r, -r, -r + t, r);
+    fillWorldRect(ctx, tileX0, tileZ0, bpp, tilePx, r - t, -r, r, r);
+}
+
 const FarlandsOverlay = L.GridLayer.extend({
     createTile: function(coords) {
         const tile = document.createElement('canvas');
@@ -385,47 +567,34 @@ const FarlandsOverlay = L.GridLayer.extend({
         tile.width = size.x;
         tile.height = size.y;
 
-        const F = farlandsThreshold(appliedGenId);
-        if (!F)
+        const rings = farlandsRings(appliedGenId);
+        if (!rings.length)
             return tile;
-
-        const FF = fartherlandsThreshold(appliedGenId);
-        const farOuter = FF > 0 ? Math.min(FF, FARLANDS_EXTENT) : FARLANDS_EXTENT;
 
         const bpp = Math.pow(2, -coords.z);
         const tileX0 = coords.x * size.x * bpp;
         const tileZ0 = coords.y * size.y * bpp;
         const ctx = tile.getContext('2d');
+
         ctx.globalAlpha = 0.38;
+        for (const ring of rings) {
+            ctx.fillStyle = ring.edge;
+            fillEdgeBand(ctx, tileX0, tileZ0, bpp, size.x, ring.inner, ring.outer);
+            ctx.fillStyle = ring.corner;
+            fillCornerSquares(ctx, tileX0, tileZ0, bpp, size.x, ring.inner, ring.outer);
+        }
 
-        // Edge Far Lands (one axis overflowed): red
-        ctx.fillStyle = '#ff2200';
-        fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, F, -F, farOuter, F);
-        fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, -farOuter, -F, -F, F);
-        fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, -F, F, F, farOuter);
-        fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, -F, -farOuter, F, -F);
+        // Past the 64-bit integer limit (visible when zoomed out past ±2^63).
+        ctx.fillStyle = '#156080';
+        fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, LIMIT_64, -OVERLAY_EXTENT, OVERLAY_EXTENT, OVERLAY_EXTENT);
+        fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, -OVERLAY_EXTENT, -OVERLAY_EXTENT, -LIMIT_64, OVERLAY_EXTENT);
+        fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, -LIMIT_64, LIMIT_64, LIMIT_64, OVERLAY_EXTENT);
+        fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, -LIMIT_64, -OVERLAY_EXTENT, LIMIT_64, -LIMIT_64);
 
-        // Corner Far Lands (both axes overflowed): orange
-        ctx.fillStyle = '#ff9900';
-        fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, F, F, farOuter, farOuter);
-        fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, F, -farOuter, farOuter, -F);
-        fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, -farOuter, F, -F, farOuter);
-        fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, -farOuter, -farOuter, -F, -F);
-
-        if (FF > 0) {
-            // Edge Farther Lands (selector overflow on one axis): lighter orange
-            ctx.fillStyle = '#ffb35c';
-            fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, FF, -FF, FARLANDS_EXTENT, FF);
-            fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, -FARLANDS_EXTENT, -FF, -FF, FF);
-            fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, -FF, FF, FF, FARLANDS_EXTENT);
-            fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, -FF, -FARLANDS_EXTENT, FF, -FF);
-
-            // Corner Farther Lands (selector overflow on both axes): orange-yellow
-            ctx.fillStyle = '#ffdc4a';
-            fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, FF, FF, FARLANDS_EXTENT, FARLANDS_EXTENT);
-            fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, FF, -FARLANDS_EXTENT, FARLANDS_EXTENT, -FF);
-            fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, -FARLANDS_EXTENT, FF, -FF, FARLANDS_EXTENT);
-            fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, -FARLANDS_EXTENT, -FARLANDS_EXTENT, -FF, -FF);
+        ctx.globalAlpha = 0.85;
+        for (const limit of WORLD_LIMITS) {
+            ctx.fillStyle = limit.color;
+            strokeWorldSquare(ctx, tileX0, tileZ0, bpp, size.x, limit.at);
         }
 
         return tile;
@@ -458,11 +627,11 @@ const WorldBoundaryOverlay = L.GridLayer.extend({
         ctx.globalAlpha = 0.55;
         ctx.fillStyle = '#000000';
 
-        // Everything outside the ±32M square
-        fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, B, -FARLANDS_EXTENT, FARLANDS_EXTENT, FARLANDS_EXTENT);
-        fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, -FARLANDS_EXTENT, -FARLANDS_EXTENT, -B, FARLANDS_EXTENT);
-        fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, -B, B, B, FARLANDS_EXTENT);
-        fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, -B, -FARLANDS_EXTENT, B, -B);
+        // Fake chunks exist from ±32M out to the signed 32-bit limit.
+        fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, B, -LIMIT_32, LIMIT_32, LIMIT_32);
+        fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, -LIMIT_32, -LIMIT_32, -B, LIMIT_32);
+        fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, -B, B, B, LIMIT_32);
+        fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, -B, -LIMIT_32, B, -B);
 
         return tile;
     }
@@ -565,7 +734,7 @@ window.addEventListener('load', () => {
       onRuntimeInitialized: function() {
             const getTileSize = this.cwrap('getTileSize', 'number', []);
             const scale = getTileSize(); // pixels per tile; 1:1 is 1px per block
-            const minZoom = -23;
+            const minZoom = MAP_MIN_ZOOM;
             const Module = this;
             window.Module = Module;
             const updateGenAndSeedMain = this.cwrap('UpdateGenAndSeed', 'void', ['string', 'number']);
@@ -582,8 +751,8 @@ window.addEventListener('load', () => {
                 noWrap: true,
                 maxBoundsViscosity: 1.0,
                 maxBounds: [
-                    [-INT32_MAX, INT32_MIN],
-                    [-INT32_MIN, INT32_MAX],
+                    [-LIMIT_64, -LIMIT_64],
+                    [LIMIT_64, LIMIT_64],
                 ],
                 keepBuffer: 10   // default is 2
             });
@@ -847,12 +1016,12 @@ window.addEventListener('load', () => {
             function cursorBlockPos() {
                 const point = map.project(map.getCenter(), tileZoom);
                 return {
-                    x: clampBlockCoord(point.x),
-                    z: clampBlockCoord(point.y),
+                    x: clampWorldCoord(point.x),
+                    z: clampWorldCoord(point.y),
                 };
             }
 
-            function applyInt32CenterBounds() {
+            function applyWorldCenterBounds() {
                 const size = map.getSize();
                 let padLng = 0;
                 let padLat = 0;
@@ -863,16 +1032,16 @@ window.addEventListener('load', () => {
                     padLat = Math.abs(c11.lat - c00.lat) / 2;
                 }
                 map.setMaxBounds([
-                    [-INT32_MAX - padLat, INT32_MIN - padLng],
-                    [-INT32_MIN + padLat, INT32_MAX + padLng],
+                    [-LIMIT_64 - padLat, -LIMIT_64 - padLng],
+                    [LIMIT_64 + padLat, LIMIT_64 + padLng],
                 ]);
                 map.options.maxBoundsViscosity = 1.0;
             }
 
-            function clampViewToInt32() {
+            function clampViewToWorld() {
                 const c = map.getCenter();
-                const x = clampBlockCoord(c.lng);
-                const z = clampBlockCoord(-c.lat);
+                const x = clampWorldCoord(c.lng);
+                const z = clampWorldCoord(-c.lat);
                 if (x !== c.lng || z !== -c.lat)
                     map.setView(L.latLng(-z, x), map.getZoom(), { animate: false });
             }
@@ -883,7 +1052,7 @@ window.addEventListener('load', () => {
                 const blockPosZ = cursor.z;
                 mapCenter.x = blockPosX / scale;
                 mapCenter.y = blockPosZ / scale;
-                document.getElementById('coords').textContent = `Center: ${blockPosX.toFixed(2)}, ${blockPosZ.toFixed(2)}`;
+                document.getElementById('coords').textContent = `Center: ${formatWorldCoord(blockPosX)}, ${formatWorldCoord(blockPosZ)}`;
                 document.getElementById('bigCoords').textContent = `Cnk: ${((blockPosX/16)-0.5).toFixed(0)}, ${((blockPosZ/16)-0.5).toFixed(0)} / Rgn: ${((blockPosX/512)-0.5).toFixed(0)}, ${((blockPosZ/512)-0.5).toFixed(0)}`;
                 const biomeEl = document.getElementById('biomeCoords');
                 if (biomeEl) {
@@ -892,7 +1061,7 @@ window.addEventListener('load', () => {
                         biomeEl.textContent = '';
                     } else {
                         biomeEl.style.display = '';
-                        if (getBiomeAt) {
+                        if (getBiomeAt && withinInt32(blockPosX) && withinInt32(blockPosZ)) {
                             const bx = Math.floor(blockPosX);
                             const bz = Math.floor(blockPosZ);
                             const info = biomeInfo(getBiomeAt(bx, bz, map.getZoom()));
@@ -939,12 +1108,25 @@ window.addEventListener('load', () => {
                 shareTimer = setTimeout(writeShareParams, 200);
             }
 
+            function safeZoomForWorldPos(x, z, requestedZoom) {
+                const dist = Math.max(Math.abs(x), Math.abs(z), 1);
+                const maxSafe = Math.min(2, Math.floor(Math.log2(1e8 / dist) + 1e-9));
+                let zoom = requestedZoom;
+                if (!Number.isFinite(zoom))
+                    zoom = 0;
+                if (zoom > maxSafe)
+                    zoom = Math.max(minZoom, maxSafe);
+                if (zoom < minZoom)
+                    zoom = minZoom;
+                return zoom;
+            }
+
             window.setPosition = function() {
-                const x = clampBlockCoord(Number(document.getElementById('xPos').value));
-                const z = clampBlockCoord(Number(document.getElementById('zPos').value));
+                const x = clampWorldCoord(Number(document.getElementById('xPos').value));
+                const z = clampWorldCoord(Number(document.getElementById('zPos').value));
                 document.getElementById('xPos').value = String(x);
                 document.getElementById('zPos').value = String(z);
-                map.setView([z * -1, x]);
+                map.setView([z * -1, x], safeZoomForWorldPos(x, z, map.getZoom()));
 
                 clearOffscreenTiles();
             };
@@ -1110,38 +1292,66 @@ window.addEventListener('load', () => {
 
             const regionLabelLayer = L.layerGroup([], { pane: 'labelPane' });
 
-            function addRegionLabel(text, x, z, color, viewBounds) {
+            const labelMeasureCtx = document.createElement('canvas').getContext('2d');
+            labelMeasureCtx.font = '700 12px sans-serif';
+
+            function addRegionLabel(pending, text, x, z, color, viewBounds) {
                 const latlng = blockToLatLng(x, z);
                 if (viewBounds && !viewBounds.contains(latlng))
                     return;
+                pending.push({ text, color, latlng });
+            }
+
+            function labelRing(pending, text, inner, outer, color, corners, viewBounds) {
+                const span = outer - inner;
+                const mid = inner + Math.min(span, inner) * 0.5;
+                if (corners) {
+                    addRegionLabel(pending, text, mid, mid, color, viewBounds);
+                    addRegionLabel(pending, text, mid, -mid, color, viewBounds);
+                    addRegionLabel(pending, text, -mid, mid, color, viewBounds);
+                    addRegionLabel(pending, text, -mid, -mid, color, viewBounds);
+                } else {
+                    addRegionLabel(pending, text, mid, 0, color, viewBounds);
+                    addRegionLabel(pending, text, -mid, 0, color, viewBounds);
+                    addRegionLabel(pending, text, 0, mid, color, viewBounds);
+                    addRegionLabel(pending, text, 0, -mid, color, viewBounds);
+                }
+            }
+
+            function labelScreenBox(latlng, text) {
+                const p = map.latLngToContainerPoint(latlng);
+                const w = labelMeasureCtx.measureText(text).width + 10;
+                const h = 18;
+                return { sx: p.x, sy: p.y, w, h };
+            }
+
+            function labelOverlapAmount(a, b) {
+                const dx = Math.abs(a.sx - b.sx);
+                const dy = Math.abs(a.sy - b.sy);
+                const ox = (a.w + b.w) / 2 - dx;
+                const oy = (a.h + b.h) / 2 - dy;
+                if (ox <= 0 || oy <= 0)
+                    return 0;
+                return (ox * oy) / Math.min(a.w * a.h, b.w * b.h);
+            }
+
+            function mountRegionLabel(item, opacity) {
+                if (opacity < 0.04)
+                    return;
                 const icon = L.divIcon({
                     className: 'world-region-label',
-                    html: `<span style="color:${color}">${text}</span>`,
+                    html: `<span style="color:${item.color};opacity:${opacity}">${item.text}</span>`,
                     iconSize: [0, 0],
                     iconAnchor: [0, 0],
                 });
-                L.marker(latlng, {
+                L.marker(item.latlng, {
                     icon,
                     pane: 'labelPane',
                     interactive: false,
                     keyboard: false,
                     zIndexOffset: 500,
+                    opacity,
                 }).addTo(regionLabelLayer);
-            }
-
-            function labelRing(text, inner, outer, color, corners, viewBounds) {
-                const mid = (inner + outer) / 2;
-                if (corners) {
-                    addRegionLabel(text, mid, mid, color, viewBounds);
-                    addRegionLabel(text, mid, -mid, color, viewBounds);
-                    addRegionLabel(text, -mid, mid, color, viewBounds);
-                    addRegionLabel(text, -mid, -mid, color, viewBounds);
-                } else {
-                    addRegionLabel(text, mid, 0, color, viewBounds);
-                    addRegionLabel(text, -mid, 0, color, viewBounds);
-                    addRegionLabel(text, 0, mid, color, viewBounds);
-                    addRegionLabel(text, 0, -mid, color, viewBounds);
-                }
             }
 
             function rebuildRegionLabels() {
@@ -1150,23 +1360,38 @@ window.addEventListener('load', () => {
                     return;
                 if (!map._loaded)
                     return;
-                const F = farlandsThreshold(appliedGenId);
-                const FF = fartherlandsThreshold(appliedGenId);
-                const farOuter = FF > 0 ? Math.min(FF, FARLANDS_EXTENT) : FARLANDS_EXTENT;
-                // Off-screen markers at ±10^9 sit at billion-pixel CSS translates
+                const rings = farlandsRings(appliedGenId);
+                // Off-screen markers at huge coords sit at enormous CSS translates
                 // and stall the browser; only mount labels in the current view.
                 const bounds = map.getBounds();
                 if (!bounds || !bounds.isValid())
                     return;
                 const viewBounds = bounds.pad(1);
+                const pending = [];
 
-                if (F > 0) {
-                    labelRing('Edge Far Lands', F, farOuter, '#ff6a4a', false, viewBounds);
-                    labelRing('Corner Far Lands', F, farOuter, '#ffb040', true, viewBounds);
+                for (const ring of rings) {
+                    labelRing(pending, ring.edgeLabel, ring.inner, ring.outer, ring.edgeLabelColor, false, viewBounds);
+                    labelRing(pending, ring.cornerLabel, ring.inner, ring.outer, ring.cornerLabelColor, true, viewBounds);
                 }
-                if (FF > 0) {
-                    labelRing('Edge Farther Lands', FF, FARLANDS_EXTENT, '#ffc266', false, viewBounds);
-                    labelRing('Corner Farther Lands', FF, FARLANDS_EXTENT, '#ffe14a', true, viewBounds);
+                for (const limit of WORLD_LIMITS) {
+                    addRegionLabel(pending, limit.label, limit.at, 0, limit.color, viewBounds);
+                    addRegionLabel(pending, limit.label, -limit.at, 0, limit.color, viewBounds);
+                    addRegionLabel(pending, limit.label, 0, limit.at, limit.color, viewBounds);
+                    addRegionLabel(pending, limit.label, 0, -limit.at, limit.color, viewBounds);
+                }
+
+                const placed = pending.map((item) => ({
+                    ...item,
+                    ...labelScreenBox(item.latlng, item.text),
+                }));
+                for (let i = 0; i < placed.length; i++) {
+                    let overlap = 0;
+                    for (let j = 0; j < placed.length; j++) {
+                        if (i === j)
+                            continue;
+                        overlap += labelOverlapAmount(placed[i], placed[j]);
+                    }
+                    mountRegionLabel(placed[i], Math.max(0, 1 - overlap));
                 }
             }
 
@@ -1221,17 +1446,18 @@ window.addEventListener('load', () => {
             document.getElementById('zPos').addEventListener('change', setPosition);
             
             map.on('move',      updateCenter);
+            map.on('zoom',      updateRegionLabels);
             map.on('moveend',   () => {
-                clampViewToInt32();
+                clampViewToWorld();
                 updateRegionLabels();
                 scheduleShareParams();
             });
             map.on('zoomend',   () => {
-                applyInt32CenterBounds();
+                applyWorldCenterBounds();
                 updateRegionLabels();
                 scheduleShareParams();
             });
-            map.on('resize',    applyInt32CenterBounds);
+            map.on('resize',    applyWorldCenterBounds);
             map.on('zoomstart', () => {
                 currentGenId++;
                 dropQueuedJobs();
@@ -1350,10 +1576,11 @@ window.addEventListener('load', () => {
                 }).addTo(map);
 
                 let startZoom = Number.isFinite(share.zoom) ? share.zoom : tileZoom;
-                if (startZoom < minZoom) startZoom = minZoom;
-                if (startZoom > 2) startZoom = 2;
-                map.setView([clampBlockCoord(share.z) * -1, clampBlockCoord(share.x)], startZoom);
-                applyInt32CenterBounds();
+                const startX = clampWorldCoord(share.x);
+                const startZ = clampWorldCoord(share.z);
+                startZoom = safeZoomForWorldPos(startX, startZ, startZoom);
+                map.setView([startZ * -1, startX], startZoom);
+                applyWorldCenterBounds();
                 updateRegionLabels();
                 updateCenter();
                 writeShareParams();
