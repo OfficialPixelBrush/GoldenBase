@@ -14,14 +14,14 @@ class GeneratorAlpha112_01 : public Generator {
   private:
 	JavaRandom rand;
 	// Perlin Noise Generators
-	NoiseOctavesPerlin lowNoiseGen;
-	NoiseOctavesPerlin highNoiseGen;
-	NoiseOctavesPerlin selectorNoiseGen;
-	NoiseOctavesPerlin sandGravelNoiseGen;
-	NoiseOctavesPerlin stoneNoiseGen;
-	NoiseOctavesPerlin continentalnessNoiseGen;
-	NoiseOctavesPerlin depthNoiseGen;
-	//NoiseOctavesPerlin treeDensityNoiseGen;
+	NoiseOctaves<NoisePerlin> lowNoiseGen;
+	NoiseOctaves<NoisePerlin> highNoiseGen;
+	NoiseOctaves<NoisePerlin> selectorNoiseGen;
+	NoiseOctaves<NoisePerlin> sandGravelNoiseGen;
+	NoiseOctaves<NoisePerlin> stoneNoiseGen;
+	NoiseOctaves<NoisePerlin> continentalnessNoiseGen;
+	NoiseOctaves<NoisePerlin> depthNoiseGen;
+	//NoiseOctaves<NoisePerlin> treeDensityNoiseGen;
 
 	// Stored noise Fields
 	std::vector<double> terrainNoiseField;

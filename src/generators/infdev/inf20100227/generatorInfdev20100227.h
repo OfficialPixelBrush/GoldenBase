@@ -7,12 +7,12 @@
 class GeneratorInfdev20100227 : public Generator {
   private:
 	JavaRandom rand;
-	NoiseOctavesPerlin noiseGen1;
-	NoiseOctavesPerlin noiseGen2;
-	NoiseOctavesPerlin noiseGen3;
-	NoiseOctavesPerlin noiseGen4;
-	NoiseOctavesPerlin noiseGen5;
-	NoiseOctavesPerlin noiseGen6;
+	NoiseOctaves<NoisePerlin> noiseGen1;
+	NoiseOctaves<NoisePerlin> noiseGen2;
+	NoiseOctaves<NoisePerlin> noiseGen3;
+	NoiseOctaves<NoisePerlin> noiseGen4;
+	NoiseOctaves<NoisePerlin> noiseGen5;
+	NoiseOctaves<NoisePerlin> noiseGen6;
 
   public:
 	GeneratorInfdev20100227(int64_t seed, float multiplier);

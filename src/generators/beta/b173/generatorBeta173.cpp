@@ -12,14 +12,14 @@ GeneratorBeta173::GeneratorBeta173(int64_t pSeed, float multiplier) : Generator(
 	rand = JavaRandom(this->seed);
 
 	// Init Terrain Noise
-	lowNoiseGen = NoiseOctavesPerlin(rand, 16, 16);
-	highNoiseGen = NoiseOctavesPerlin(rand, 16, 16);
-	selectorNoiseGen = NoiseOctavesPerlin(rand, 8, 8);
-	sandGravelNoiseGen = NoiseOctavesPerlin(rand, 4, 4);
-	stoneNoiseGen = NoiseOctavesPerlin(rand, 4, 4);
-	continentalnessNoiseGen = NoiseOctavesPerlin(rand, 10, 10);
-	depthNoiseGen = NoiseOctavesPerlin(rand, 16, 16);
-	//treeDensityNoiseGen = NoiseOctavesPerlin(rand, 8);
+	lowNoiseGen = NoiseOctaves<NoisePerlin>(rand, 16, 16);
+	highNoiseGen = NoiseOctaves<NoisePerlin>(rand, 16, 16);
+	selectorNoiseGen = NoiseOctaves<NoisePerlin>(rand, 8, 8);
+	sandGravelNoiseGen = NoiseOctaves<NoisePerlin>(rand, 4, 4);
+	stoneNoiseGen = NoiseOctaves<NoisePerlin>(rand, 4, 4);
+	continentalnessNoiseGen = NoiseOctaves<NoisePerlin>(rand, 10, 10);
+	depthNoiseGen = NoiseOctaves<NoisePerlin>(rand, 16, 16);
+	//treeDensityNoiseGen = NoiseOctaves<NoisePerlin>(rand, 8);
 
 	// Init Caver
 	caver = Beta173Caver();

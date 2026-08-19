@@ -77,12 +77,12 @@ GeneratorInfdev20100227::GeneratorInfdev20100227(int64_t pSeed, float multiplier
 	this->seed = pSeed;
 
 	rand = JavaRandom(this->seed);
-	noiseGen1 = NoiseOctavesPerlin(rand, 16,16);
-	noiseGen2 = NoiseOctavesPerlin(rand, 16,16);
-	noiseGen3 = NoiseOctavesPerlin(rand, 8 , 8);
-	noiseGen4 = NoiseOctavesPerlin(rand, 4 , 4);
-	noiseGen5 = NoiseOctavesPerlin(rand, 4 , 4);
-	noiseGen6 = NoiseOctavesPerlin(rand, 5 , 5);
+	noiseGen1 = NoiseOctaves<NoisePerlin>(rand, 16,16);
+	noiseGen2 = NoiseOctaves<NoisePerlin>(rand, 16,16);
+	noiseGen3 = NoiseOctaves<NoisePerlin>(rand, 8 , 8);
+	noiseGen4 = NoiseOctaves<NoisePerlin>(rand, 4 , 4);
+	noiseGen5 = NoiseOctaves<NoisePerlin>(rand, 4 , 4);
+	noiseGen6 = NoiseOctaves<NoisePerlin>(rand, 5 , 5);
 }
 
 Chunk GeneratorInfdev20100227::GenerateChunk(Int2 chunkPos) {

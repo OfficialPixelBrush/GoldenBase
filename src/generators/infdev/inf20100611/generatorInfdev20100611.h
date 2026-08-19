@@ -8,14 +8,14 @@
 class GeneratorInfdev20100611 : public Generator {
   private:
 	JavaRandom rand;
-	NoiseOctavesPerlin noiseGen1;
-	NoiseOctavesPerlin noiseGen2;
-	NoiseOctavesPerlin noiseGen3;
-	NoiseOctavesPerlin noiseGen4;
-	NoiseOctavesPerlin noiseGen5;
-	NoiseOctavesPerlin noiseGen6;
-	NoiseOctavesPerlin noiseGen7;
-	//NoiseOctavesPerlin mobSpawnerNoise;
+	NoiseOctaves<NoisePerlin> noiseGen1;
+	NoiseOctaves<NoisePerlin> noiseGen2;
+	NoiseOctaves<NoisePerlin> noiseGen3;
+	NoiseOctaves<NoisePerlin> noiseGen4;
+	NoiseOctaves<NoisePerlin> noiseGen5;
+	NoiseOctaves<NoisePerlin> noiseGen6;
+	NoiseOctaves<NoisePerlin> noiseGen7;
+	//NoiseOctaves<NoisePerlin> mobSpawnerNoise;
 	double InitializeNoiseField(double var1, double var3, double var5);
     std::vector<double> noise1;
     std::vector<double> noise2;
