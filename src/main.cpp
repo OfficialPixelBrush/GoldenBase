@@ -17,7 +17,7 @@
 #include "mapColors.h"
 #include "blocks.h"
 #include "noiseLod.h"
-#include "javaMath.h"
+#include "java_math.h"
 
 #define TILE_PIXELS 256
 // Negative zoomLevel zooms out: each step doubles the number of chunks per tile side.

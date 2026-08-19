@@ -1,6 +1,6 @@
 #pragma once
 
-#include "javaRandom.h"
+#include "java_random.h"
 #include "datatypes.h"
 #include "chunk.h"
 #include <cstdint>

@@ -5,8 +5,8 @@
 #include <blocks.h>
 #include <chunk.h>
 #include <helper.h>
-#include <javaRandom.h>
-#include <noiseOctaves.h>
+#include <java_random.h>
+#include <noise_octaves_perlin.h>
 #include <blockHelper.h>
 #include <noiseLod.h>
 #include <biomes.h>

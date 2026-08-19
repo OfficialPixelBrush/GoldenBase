@@ -21,9 +21,9 @@ set(SOURCES
     #src/generators/beta/b173/beta173Tree.cpp
     src/generators/beta/b173/generatorBeta173.cpp
     src/generator.cpp
-    src/java/noise/noisePerlin.cpp
-    src/java/noise/noiseSimplex.cpp
-    src/java/noise/noiseGenerator.cpp
+    src/java/noise/noise_perlin.cpp
+    src/java/noise/noise_simplex.cpp
+    src/java/noise/noise_generator.cpp
     
     src/helpers/datatypes.cpp
     src/helpers/blockHelper.cpp

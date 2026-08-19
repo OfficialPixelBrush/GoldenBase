@@ -8,13 +8,13 @@
 class GeneratorInfdev20100327 : public Generator {
   private:
 	JavaRandom rand;
-	NoiseOctaves<NoisePerlin> noiseGen1;
-	NoiseOctaves<NoisePerlin> noiseGen2;
-	NoiseOctaves<NoisePerlin> noiseGen3;
-	NoiseOctaves<NoisePerlin> noiseGen4;
-	NoiseOctaves<NoisePerlin> noiseGen5;
-	//NoiseOctaves<NoisePerlin> noiseGen6;
-	//NoiseOctaves<NoisePerlin> mobSpawnerNoise;
+	NoiseOctavesPerlin noiseGen1;
+	NoiseOctavesPerlin noiseGen2;
+	NoiseOctavesPerlin noiseGen3;
+	NoiseOctavesPerlin noiseGen4;
+	NoiseOctavesPerlin noiseGen5;
+	//NoiseOctavesPerlin noiseGen6;
+	//NoiseOctavesPerlin mobSpawnerNoise;
 	double InitializeNoiseField(double var1, double var3, double var5);
 
   public:

@@ -1,7 +1,6 @@
 #pragma once
 #include "biomes.h"
-#include "noiseOctaves.h"
-#include "noiseSimplex.h"
+#include "noise_octaves_simplex.h"
 
 /**
  * @brief A faithful reimplementation of the Beta 1.7.3 biome generator
@@ -10,9 +9,9 @@
 class Beta173Biome {
     private:
         // Simplex Noise Generators
-        NoiseOctaves<NoiseSimplex> temperatureNoiseGen;
-        NoiseOctaves<NoiseSimplex> humidityNoiseGen;
-        NoiseOctaves<NoiseSimplex> weirdnessNoiseGen;
+        NoiseOctavesSimplex temperatureNoiseGen;
+        NoiseOctavesSimplex humidityNoiseGen;
+        NoiseOctavesSimplex weirdnessNoiseGen;
     public:
         Beta173Biome();
         Beta173Biome(int64_t seed);
