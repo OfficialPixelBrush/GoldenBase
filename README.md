@@ -1,4 +1,5 @@
 # GoldenBase
+
 ![C++23](https://img.shields.io/badge/Language-C%2B%2B23-5E96CF)
 ![Issues](https://img.shields.io/github/issues/OfficialPixelBrush/GoldenBase)
 ![Pull requests](https://img.shields.io/github/issues-pr/OfficialPixelBrush/GoldenBase)
@@ -6,24 +7,28 @@
 A ChunkBase-like website for pre-Release Minecraft terrain generation
 
 ## Discord
-This project is part of the OpenBeta initiative, so feel free to join the Discord server!
-https://discord.gg/JHTz2HSKrf
 
-# Dependencies
+This project is part of the OpenBeta initiative, so feel free to join the Discord server!
+<https://discord.gg/JHTz2HSKrf>
+
+## Dependencies
+
 Follow the download and install instructions from the Emscripten page, [found here](https://emscripten.org/docs/getting_started/downloads.html).
 
 You'll also need `Ninja` and `cmake`.
 
-# Building
+## Building
 
 Make sure you're working within the emscripten env
+
 ```bash
 source ~/emsdk/emsdk_env.sh
 ```
 
 Just run the `build.sh` file, then use something like `python3 -m http.server` to host the files.
 
-# Supported features
+## Supported features
+
 - Highly accurate terrain generation
 - Version selection
 - Biome visualization

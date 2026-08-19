@@ -1,4 +1,6 @@
 #include <stdint.h>
+#include <string.h>
+#include <limits.h>
 #include <math.h>
 #include <iostream>
 #include <algorithm>
@@ -21,7 +23,7 @@
 // Negative zoomLevel zooms out: each step doubles the number of chunks per tile side.
 // MAX_ZOOM_OUT 18 → 256 * 2^18 = 67,108,864 blocks per tile, enough to see
 // the inf-20100227 stone-wall Far Lands at ±33,554,432 from spawn.
-#define MAX_ZOOM_OUT 18
+#define MAX_ZOOM_OUT 23
 
 static uint8_t buffer[TILE_PIXELS * TILE_PIXELS * 4];
 static TileColumn columns[TILE_PIXELS * TILE_PIXELS];
@@ -407,6 +409,40 @@ extern "C" {
         Color mode none: neither 32, 128, 256, nor 512 (plain pre-biome green)
     */
 
+    static bool BeyondInt32(int64_t v) {
+        return v > INT32_MAX || v < INT32_MIN;
+    }
+
+    static void BlankSamplesBeyondInt32(int64_t originX, int64_t originZ, int stride, int scale) {
+        if (scale < 1)
+            scale = 1;
+        if (stride < 1)
+            stride = 1;
+        const int sampleSize = TILE_PIXELS / scale;
+        const int64_t lastX = originX + int64_t(sampleSize - 1) * stride;
+        const int64_t lastZ = originZ + int64_t(sampleSize - 1) * stride;
+        if (originX >= INT32_MIN && lastX <= INT32_MAX && originZ >= INT32_MIN && lastZ <= INT32_MAX)
+            return;
+        for (int sz = 0; sz < sampleSize; ++sz) {
+            const int64_t wz = originZ + int64_t(sz) * stride;
+            const bool zOut = BeyondInt32(wz);
+            for (int sx = 0; sx < sampleSize; ++sx) {
+                if (!zOut && !BeyondInt32(originX + int64_t(sx) * stride))
+                    continue;
+                for (int sy = 0; sy < scale; ++sy) {
+                    for (int px = 0; px < scale; ++px) {
+                        const int pix = ((sz * scale) + sy) * TILE_PIXELS + ((sx * scale) + px);
+                        const int idx = pix * 4;
+                        buffer[idx + 0] = 0;
+                        buffer[idx + 1] = 0;
+                        buffer[idx + 2] = 0;
+                        buffer[idx + 3] = 0;
+                    }
+                }
+            }
+        }
+    }
+
     EMSCRIPTEN_KEEPALIVE
     uint8_t* getTile(int x, int z, int zoomLevel, int32_t options) {
         bool heightmap      = (options &  1) > 0;
@@ -460,6 +496,18 @@ extern "C" {
             scale     = 1;
             stride    = 1 << zoomOut;
         }
+
+        const int64_t originX64 = int64_t(x) * int64_t(batchSize) * CHUNK_WIDTH;
+        const int64_t originZ64 = int64_t(z) * int64_t(batchSize) * CHUNK_WIDTH;
+        const int64_t tileExtent = int64_t(TILE_PIXELS) * int64_t(stride);
+        // Signed 32-bit block coords: nothing exists past this, so don't generate.
+        if (originX64 > INT32_MAX || originZ64 > INT32_MAX ||
+            originX64 + tileExtent <= int64_t(INT32_MIN) ||
+            originZ64 + tileExtent <= int64_t(INT32_MIN)) {
+            memset(buffer, 0, sizeof(buffer));
+            return buffer;
+        }
+        memset(buffer, 0, sizeof(buffer));
 
         gen->SetDetailLevel(stride);
         gen->snowMode = snowMode;
@@ -613,6 +661,7 @@ extern "C" {
                 ApplyHandheldMapShade(scale, stride, originX, originZ);
             else if (hillshade)
                 ApplyTopoHillshade();
+            BlankSamplesBeyondInt32(originX64, originZ64, stride, scale);
             return buffer;
         }
 
@@ -621,6 +670,12 @@ extern "C" {
 
         for (int bx = 0; bx < batchSize; bx++) {
             for (int bz = 0; bz < batchSize; bz++) {
+                const int64_t chunkWorldX = (int64_t(x) * batchSize + bx) * CHUNK_WIDTH;
+                const int64_t chunkWorldZ = (int64_t(z) * batchSize + bz) * CHUNK_WIDTH;
+                if (chunkWorldX > INT32_MAX || chunkWorldX + CHUNK_WIDTH <= int64_t(INT32_MIN) ||
+                    chunkWorldZ > INT32_MAX || chunkWorldZ + CHUNK_WIDTH <= int64_t(INT32_MIN))
+                    continue;
+
                 Chunk chunk = gen->GenerateChunk(Int2{
                     x * batchSize + bx,
                     z * batchSize + bz
@@ -706,6 +761,7 @@ extern "C" {
             ApplyHandheldMapShade(scale, stride, chunkOriginX, chunkOriginZ);
         else if (hillshade)
             ApplyTopoHillshade();
+        BlankSamplesBeyondInt32(originX64, originZ64, stride, scale);
         return buffer;
     }
 }

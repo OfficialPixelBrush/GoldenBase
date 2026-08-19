@@ -112,6 +112,10 @@ function getOptions() {
 function requestTile(x, y, z, tileSize) {
     const genId = currentGenId;
     return new Promise((resolve) => {
+        if (tileFullyOutsideInt32(x, y, z, tileSize)) {
+            resolve(new Uint8ClampedArray(tileSize * tileSize * 4));
+            return;
+        }
         const id = tileIdCounter++;
         pendingTiles[id] = (bytes) => {
             delete pendingTiles[id];
@@ -309,8 +313,36 @@ const SlimeOverlay = L.GridLayer.extend({
 
 // Classic Far Lands (inf-20100327+): finest Perlin octave samples
 // (world/4)*684.412, overflowing a Java int at ±12,550,821.
+// Farther Lands: selector noise at that scale / 80, overflowing at ±1,004,065,811.
 // Infdev 20100227–20100325: solid stone wall at ±33,554,432 (2^25).
-const FARLANDS_EXTENT = 2147483647;
+const INT32_MIN = -2147483648;
+const INT32_MAX = 2147483647;
+const FARLANDS_EXTENT = INT32_MAX;
+
+function tileFullyOutsideInt32(tx, tz, zoom, tilePx) {
+    const bpp = Math.pow(2, -zoom);
+    const w = tilePx * bpp;
+    const x0 = tx * w;
+    const z0 = tz * w;
+    const x1 = x0 + w;
+    const z1 = z0 + w;
+    const hi = INT32_MAX + 1;
+    return x1 <= INT32_MIN || x0 >= hi || z1 <= INT32_MIN || z0 >= hi;
+}
+
+function clampBlockCoord(n) {
+    if (!Number.isFinite(n))
+        return 0;
+    if (n < INT32_MIN)
+        return INT32_MIN;
+    if (n > INT32_MAX)
+        return INT32_MAX;
+    return n;
+}
+
+function blockToLatLng(x, z) {
+    return L.latLng(-z, x);
+}
 
 function farlandsThreshold(genId) {
     if (!genId)
@@ -318,6 +350,13 @@ function farlandsThreshold(genId) {
     if (genId === 1)
         return 33554432;
     return 12550821;
+}
+
+// Selector noise uses scale 684.412/80, so it overflows ~80× farther out.
+function fartherlandsThreshold(genId) {
+    if (!genId || genId === 1)
+        return 0;
+    return 1004065811;
 }
 
 // Overlays follow the generator last applied with Update Gen, not the dropdown.
@@ -350,6 +389,9 @@ const FarlandsOverlay = L.GridLayer.extend({
         if (!F)
             return tile;
 
+        const FF = fartherlandsThreshold(appliedGenId);
+        const farOuter = FF > 0 ? Math.min(FF, FARLANDS_EXTENT) : FARLANDS_EXTENT;
+
         const bpp = Math.pow(2, -coords.z);
         const tileX0 = coords.x * size.x * bpp;
         const tileZ0 = coords.y * size.y * bpp;
@@ -358,17 +400,33 @@ const FarlandsOverlay = L.GridLayer.extend({
 
         // Edge Far Lands (one axis overflowed): red
         ctx.fillStyle = '#ff2200';
-        fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, F, -F, FARLANDS_EXTENT, F);
-        fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, -FARLANDS_EXTENT, -F, -F, F);
-        fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, -F, F, F, FARLANDS_EXTENT);
-        fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, -F, -FARLANDS_EXTENT, F, -F);
+        fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, F, -F, farOuter, F);
+        fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, -farOuter, -F, -F, F);
+        fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, -F, F, F, farOuter);
+        fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, -F, -farOuter, F, -F);
 
         // Corner Far Lands (both axes overflowed): orange
         ctx.fillStyle = '#ff9900';
-        fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, F, F, FARLANDS_EXTENT, FARLANDS_EXTENT);
-        fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, F, -FARLANDS_EXTENT, FARLANDS_EXTENT, -F);
-        fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, -FARLANDS_EXTENT, F, -F, FARLANDS_EXTENT);
-        fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, -FARLANDS_EXTENT, -FARLANDS_EXTENT, -F, -F);
+        fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, F, F, farOuter, farOuter);
+        fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, F, -farOuter, farOuter, -F);
+        fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, -farOuter, F, -F, farOuter);
+        fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, -farOuter, -farOuter, -F, -F);
+
+        if (FF > 0) {
+            // Edge Farther Lands (selector overflow on one axis): lighter orange
+            ctx.fillStyle = '#ffb35c';
+            fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, FF, -FF, FARLANDS_EXTENT, FF);
+            fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, -FARLANDS_EXTENT, -FF, -FF, FF);
+            fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, -FF, FF, FF, FARLANDS_EXTENT);
+            fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, -FF, -FARLANDS_EXTENT, FF, -FF);
+
+            // Corner Farther Lands (selector overflow on both axes): orange-yellow
+            ctx.fillStyle = '#ffdc4a';
+            fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, FF, FF, FARLANDS_EXTENT, FARLANDS_EXTENT);
+            fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, FF, -FARLANDS_EXTENT, FARLANDS_EXTENT, -FF);
+            fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, -FARLANDS_EXTENT, FF, -FF, FARLANDS_EXTENT);
+            fillWorldRect(ctx, tileX0, tileZ0, bpp, size.x, -FARLANDS_EXTENT, -FARLANDS_EXTENT, -FF, -FF);
+        }
 
         return tile;
     }
@@ -484,8 +542,10 @@ function applyShareParams() {
     setCheck('check_slime_chunks', 'slime');
     setCheck('check_farlands', 'farlands');
     setCheck('check_world_boundary', 'boundary');
+    setCheck('check_region_labels', 'labels');
     setCheck('check_chunk_grid', 'chunks');
     setCheck('check_region_grid', 'regions');
+    setCheck('check_crosshair', 'cursor');
     const x = p.has('x') ? Number(p.get('x')) : 0;
     const z = p.has('z') ? Number(p.get('z')) : 0;
     const zoom = p.has('zoom') ? Number(p.get('zoom')) : 0;
@@ -505,10 +565,7 @@ window.addEventListener('load', () => {
       onRuntimeInitialized: function() {
             const getTileSize = this.cwrap('getTileSize', 'number', []);
             const scale = getTileSize(); // pixels per tile; 1:1 is 1px per block
-            let maxZoomOut = 10;
-            if (typeof this._getMaxZoomOut === 'function')
-                maxZoomOut = this._getMaxZoomOut();
-            const minZoom = -maxZoomOut;
+            const minZoom = -23;
             const Module = this;
             window.Module = Module;
             const updateGenAndSeedMain = this.cwrap('UpdateGenAndSeed', 'void', ['string', 'number']);
@@ -523,13 +580,44 @@ window.addEventListener('load', () => {
                 minZoom: minZoom,
                 maxZoom: 2,
                 noWrap: true,
+                maxBoundsViscosity: 1.0,
+                maxBounds: [
+                    [-INT32_MAX, INT32_MIN],
+                    [-INT32_MIN, INT32_MAX],
+                ],
                 keepBuffer: 10   // default is 2
             });
             map.createPane('gridPane');
             map.getPane('gridPane').style.zIndex = 700;
+            map.createPane('labelPane');
+            map.getPane('labelPane').style.zIndex = 750;
+            map.getPane('labelPane').style.pointerEvents = 'none';
 
             map.createPane('tilePane');
             map.getPane('tilePane').style.zIndex = 400;
+
+            const crossH = L.DomUtil.create('div', '', map.getContainer());
+            const crossV = L.DomUtil.create('div', '', map.getContainer());
+            Object.assign(crossH.style, {
+                position: 'absolute',
+                top: '50%',
+                left: 0,
+                width: '100%',
+                height: '1px',
+                background: '#ffffff55',
+                pointerEvents: 'none',
+                zIndex: 9999
+            });
+            Object.assign(crossV.style, {
+                position: 'absolute',
+                left: '50%',
+                top: 0,
+                width: '1px',
+                height: '100%',
+                background: '#ffffff55',
+                pointerEvents: 'none',
+                zIndex: 9999
+            });
             const Grid = L.GridLayer.extend({
                 createTile: function(coords) {
                     const tile = L.DomUtil.create('canvas', 'leaflet-tile');
@@ -601,8 +689,8 @@ window.addEventListener('load', () => {
                                 <code id="biomeCoords"></code>
                             </td>
                             <td>
-                                <input type="number" id="xPos" placeholder="x" value="0" style="width: 20%">
-                                <input type="number" id="zPos" placeholder="z" value="0" style="width: 20%">
+                                <input type="number" id="xPos" placeholder="x" value="0" style="width: 100%"><br>
+                                <input type="number" id="zPos" placeholder="z" value="0" style="width: 100%"><br>
                                 <button onclick="setPosition()">Go</button>
                             </td>
                         </tr>
@@ -689,11 +777,17 @@ window.addEventListener('load', () => {
                                     <input type="checkbox" id="check_world_boundary" checked>
                                     <label for="check_world_boundary" id="check_world_boundary_label">Non-solid</label><br>
 
+                                    <input type="checkbox" id="check_region_labels" checked>
+                                    <label for="check_region_labels">Region labels</label><br>
+
                                     <input type="checkbox" id="check_chunk_grid">
                                     <label for="check_chunk_grid">Chunk Grid</label><br>
 
                                     <input type="checkbox" id="check_region_grid" checked>
                                     <label for="check_region_grid">Region Grid</label><br>
+
+                                    <input type="checkbox" id="check_crosshair" checked>
+                                    <label for="check_crosshair">Show Cursor</label><br>
                                 </details>
                             </td>
                         </tr>
@@ -750,11 +844,43 @@ window.addEventListener('load', () => {
                 return Math.abs(n) < 1e-9 ? 0 : n;
             }
 
+            function cursorBlockPos() {
+                const point = map.project(map.getCenter(), tileZoom);
+                return {
+                    x: clampBlockCoord(point.x),
+                    z: clampBlockCoord(point.y),
+                };
+            }
+
+            function applyInt32CenterBounds() {
+                const size = map.getSize();
+                let padLng = 0;
+                let padLat = 0;
+                if (size.x >= 1 && size.y >= 1) {
+                    const c00 = map.containerPointToLatLng([0, 0]);
+                    const c11 = map.containerPointToLatLng([size.x, size.y]);
+                    padLng = Math.abs(c11.lng - c00.lng) / 2;
+                    padLat = Math.abs(c11.lat - c00.lat) / 2;
+                }
+                map.setMaxBounds([
+                    [-INT32_MAX - padLat, INT32_MIN - padLng],
+                    [-INT32_MIN + padLat, INT32_MAX + padLng],
+                ]);
+                map.options.maxBoundsViscosity = 1.0;
+            }
+
+            function clampViewToInt32() {
+                const c = map.getCenter();
+                const x = clampBlockCoord(c.lng);
+                const z = clampBlockCoord(-c.lat);
+                if (x !== c.lng || z !== -c.lat)
+                    map.setView(L.latLng(-z, x), map.getZoom(), { animate: false });
+            }
+
             function updateCenter() {
-                const center = map.getCenter();
-                const point = map.project(center, tileZoom);
-                const blockPosX = point.x;
-                const blockPosZ = point.y;
+                const cursor = cursorBlockPos();
+                const blockPosX = cursor.x;
+                const blockPosZ = cursor.z;
                 mapCenter.x = blockPosX / scale;
                 mapCenter.y = blockPosZ / scale;
                 document.getElementById('coords').textContent = `Center: ${blockPosX.toFixed(2)}, ${blockPosZ.toFixed(2)}`;
@@ -767,11 +893,9 @@ window.addEventListener('load', () => {
                     } else {
                         biomeEl.style.display = '';
                         if (getBiomeAt) {
-                            const info = biomeInfo(getBiomeAt(
-                                Math.floor(blockPosX),
-                                Math.floor(blockPosZ),
-                                map.getZoom()
-                            ));
+                            const bx = Math.floor(blockPosX);
+                            const bz = Math.floor(blockPosZ);
+                            const info = biomeInfo(getBiomeAt(bx, bz, map.getZoom()));
                             biomeEl.innerHTML = `Biome: <span style="display:inline-block;width:10px;height:10px;background:${info.color};border:1px solid #888;vertical-align:middle;margin-right:4px;"></span>${info.name}`;
                         } else {
                             biomeEl.textContent = 'Biome: —';
@@ -799,8 +923,10 @@ window.addEventListener('load', () => {
                 p.set('slime', flag('check_slime_chunks'));
                 p.set('farlands', flag('check_farlands'));
                 p.set('boundary', flag('check_world_boundary'));
+                p.set('labels', flag('check_region_labels'));
                 p.set('chunks', flag('check_chunk_grid'));
                 p.set('regions', flag('check_region_grid'));
+                p.set('cursor', flag('check_crosshair'));
                 const qs = p.toString();
                 const url = `${location.pathname}${qs ? '?' + qs : ''}${location.hash}`;
                 if (`${location.pathname}${location.search}${location.hash}` !== url)
@@ -814,12 +940,11 @@ window.addEventListener('load', () => {
             }
 
             window.setPosition = function() {
-                map.setView(
-                    [
-                        Number(document.getElementById('zPos').value)*-1,
-                        Number(document.getElementById('xPos').value)
-                    ]
-                );
+                const x = clampBlockCoord(Number(document.getElementById('xPos').value));
+                const z = clampBlockCoord(Number(document.getElementById('zPos').value));
+                document.getElementById('xPos').value = String(x);
+                document.getElementById('zPos').value = String(z);
+                map.setView([z * -1, x]);
 
                 clearOffscreenTiles();
             };
@@ -983,6 +1108,87 @@ window.addEventListener('load', () => {
                     writeShareParams();
                 });
 
+            const regionLabelLayer = L.layerGroup([], { pane: 'labelPane' });
+
+            function addRegionLabel(text, x, z, color, viewBounds) {
+                const latlng = blockToLatLng(x, z);
+                if (viewBounds && !viewBounds.contains(latlng))
+                    return;
+                const icon = L.divIcon({
+                    className: 'world-region-label',
+                    html: `<span style="color:${color}">${text}</span>`,
+                    iconSize: [0, 0],
+                    iconAnchor: [0, 0],
+                });
+                L.marker(latlng, {
+                    icon,
+                    pane: 'labelPane',
+                    interactive: false,
+                    keyboard: false,
+                    zIndexOffset: 500,
+                }).addTo(regionLabelLayer);
+            }
+
+            function labelRing(text, inner, outer, color, corners, viewBounds) {
+                const mid = (inner + outer) / 2;
+                if (corners) {
+                    addRegionLabel(text, mid, mid, color, viewBounds);
+                    addRegionLabel(text, mid, -mid, color, viewBounds);
+                    addRegionLabel(text, -mid, mid, color, viewBounds);
+                    addRegionLabel(text, -mid, -mid, color, viewBounds);
+                } else {
+                    addRegionLabel(text, mid, 0, color, viewBounds);
+                    addRegionLabel(text, -mid, 0, color, viewBounds);
+                    addRegionLabel(text, 0, mid, color, viewBounds);
+                    addRegionLabel(text, 0, -mid, color, viewBounds);
+                }
+            }
+
+            function rebuildRegionLabels() {
+                regionLabelLayer.clearLayers();
+                if (!document.getElementById('check_region_labels')?.checked)
+                    return;
+                if (!map._loaded)
+                    return;
+                const F = farlandsThreshold(appliedGenId);
+                const FF = fartherlandsThreshold(appliedGenId);
+                const farOuter = FF > 0 ? Math.min(FF, FARLANDS_EXTENT) : FARLANDS_EXTENT;
+                // Off-screen markers at ±10^9 sit at billion-pixel CSS translates
+                // and stall the browser; only mount labels in the current view.
+                const bounds = map.getBounds();
+                if (!bounds || !bounds.isValid())
+                    return;
+                const viewBounds = bounds.pad(1);
+
+                if (F > 0) {
+                    labelRing('Far Lands', F, farOuter, '#ff6a4a', false, viewBounds);
+                    labelRing('Corner Far Lands', F, farOuter, '#ffb040', true, viewBounds);
+                }
+                if (FF > 0) {
+                    labelRing('Farther Lands', FF, FARLANDS_EXTENT, '#ffc266', false, viewBounds);
+                    labelRing('Corner Farther Lands', FF, FARLANDS_EXTENT, '#ffe14a', true, viewBounds);
+                }
+            }
+
+            function updateRegionLabels() {
+                rebuildRegionLabels();
+                const show = document.getElementById('check_region_labels')?.checked;
+                if (show) {
+                    if (!map.hasLayer(regionLabelLayer))
+                        regionLabelLayer.addTo(map);
+                } else if (map.hasLayer(regionLabelLayer)) {
+                    map.removeLayer(regionLabelLayer);
+                }
+            }
+
+            document
+                .getElementById('check_region_labels')
+                .addEventListener('change', () => {
+                    updateRegionLabels();
+                    writeShareParams();
+                });
+            updateRegionLabels();
+
             // When updating generator/seed:
             window.updateGenJs = function() {
                 cancelAllTiles();
@@ -1006,6 +1212,7 @@ window.addEventListener('load', () => {
                 updateSlimeLayer();
                 updateFarlandsLayer();
                 updateWorldBoundaryLayer();
+                updateRegionLabels();
                 writeShareParams();
             }
             
@@ -1014,8 +1221,17 @@ window.addEventListener('load', () => {
             document.getElementById('zPos').addEventListener('change', setPosition);
             
             map.on('move',      updateCenter);
-            map.on('moveend',   scheduleShareParams);
-            map.on('zoomend',   scheduleShareParams);
+            map.on('moveend',   () => {
+                clampViewToInt32();
+                updateRegionLabels();
+                scheduleShareParams();
+            });
+            map.on('zoomend',   () => {
+                applyInt32CenterBounds();
+                updateRegionLabels();
+                scheduleShareParams();
+            });
+            map.on('resize',    applyInt32CenterBounds);
             map.on('zoomstart', () => {
                 currentGenId++;
                 dropQueuedJobs();
@@ -1070,8 +1286,6 @@ window.addEventListener('load', () => {
                 maxZoom: 3,
                 noWrap: true
             }).addTo(map);
-            const crossH = L.DomUtil.create('div', '', document.body);
-            const crossV = L.DomUtil.create('div', '', document.body);
             
             
             function refreshGridOverlay() {
@@ -1086,6 +1300,17 @@ window.addEventListener('load', () => {
             document
                 .getElementById('check_region_grid')
                 .addEventListener('change', refreshGridOverlay);
+
+            function updateCrosshairVisibility() {
+                const show = document.getElementById('check_crosshair')?.checked ?? true;
+                crossH.style.display = show ? '' : 'none';
+                crossV.style.display = show ? '' : 'none';
+            }
+            document.getElementById('check_crosshair')?.addEventListener('change', () => {
+                updateCrosshairVisibility();
+                writeShareParams();
+            });
+            updateCrosshairVisibility();
 
             [
                 'viewMode',
@@ -1112,28 +1337,6 @@ window.addEventListener('load', () => {
                 updateGenJs();
             });
 
-            Object.assign(crossH.style, {
-                position: 'absolute',
-                top: '50%',
-                left: 0,
-                width: '100%',
-                height: '1px',
-                background: '#ffffff55',
-                pointerEvents: 'none',
-                zIndex: 9999
-            });
-
-            Object.assign(crossV.style, {
-                position: 'absolute',
-                left: '50%',
-                top: 0,
-                width: '1px',
-                height: '100%',
-                background: '#ffffff55',
-                pointerEvents: 'none',
-                zIndex: 9999
-            });
-
             initWorkers('GoldenBase.js', () => {
                 console.log('All workers ready');
                 new DynamicLayer({
@@ -1149,7 +1352,9 @@ window.addEventListener('load', () => {
                 let startZoom = Number.isFinite(share.zoom) ? share.zoom : tileZoom;
                 if (startZoom < minZoom) startZoom = minZoom;
                 if (startZoom > 2) startZoom = 2;
-                map.setView([share.z * -1, share.x], startZoom);
+                map.setView([clampBlockCoord(share.z) * -1, clampBlockCoord(share.x)], startZoom);
+                applyInt32CenterBounds();
+                updateRegionLabels();
                 updateCenter();
                 writeShareParams();
             });
